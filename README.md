@@ -36,8 +36,8 @@ macOS application bundles. A source that is not installed is left out rather
 than shown as zero.
 
 That is the whole of it so far. The mouse-first terminal interface this is
-groundwork for — the inventory, the treemap, and the `PATH` resolver — is
-designed but not yet built.
+groundwork for — the inventory, the disk treemap, and the `PATH` resolver — is
+designed in [docs/interface.md](docs/interface.md) but not yet built.
 
 ## Install
 

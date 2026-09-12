@@ -77,14 +77,14 @@ cmd_doctor() {
 	fi
 
 	for hook in commit-msg pre-commit pre-push; do
-		if [ -x "$(main_root)/.githooks/$hook" ]; then
+		if [ -x "$(root)/.githooks/$hook" ]; then
 			report_ok ".githooks/$hook is executable"
 		else
 			report_bad ".githooks/$hook is missing or not executable"
 		fi
 	done
 
-	if [ -x "$(main_root)/scripts/task" ]; then
+	if [ -x "$(root)/scripts/task" ]; then
 		report_ok "scripts/task is executable"
 	else
 		report_bad "scripts/task is missing or not executable"
@@ -132,7 +132,9 @@ cmd_start() {
 	printf '\n    cd %s\n\n' "$dir"
 }
 
-cmd_check() { exec "$(main_root)/scripts/task" check; }
+# The *current* worktree's seam, not the primary checkout's: a branch that
+# changes scripts/task must be checked by the version it ships.
+cmd_check() { exec "$(root)/scripts/task" check; }
 
 cmd_commit() {
 	[ "$#" -gt 0 ] || die "usage: scripts/agent commit <message> [git-commit-args...]"
@@ -150,7 +152,7 @@ cmd_pr() {
 	[ "$branch" != "$base" ] || die "refusing to open a pull request from $base"
 
 	say "Running scripts/task check"
-	"$(main_root)/scripts/task" check
+	"$(root)/scripts/task" check
 
 	say "Pushing $branch"
 	git push -u origin "$branch"
