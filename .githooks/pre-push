@@ -1,0 +1,21 @@
+#!/bin/sh
+# Refuse to push the default branch, and never push red code.
+set -eu
+root=$(git rev-parse --show-toplevel)
+
+remote=${1:-origin}
+default=$(git symbolic-ref --quiet --short "refs/remotes/$remote/HEAD" 2>/dev/null || printf 'origin/main')
+default=${default#"$remote"/}
+
+# stdin: <local ref> <local sha> <remote ref> <remote sha>
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+	[ -n "$remote_ref" ] || continue
+	if [ "$remote_ref" = "refs/heads/$default" ]; then
+		printf '\033[31mpre-push:\033[0m %s advances only through a merged pull request.\n' "$default" >&2
+		printf '          Start a branch instead: scripts/agent start <type>/<slug>\n' >&2
+		exit 1
+	fi
+done
+
+printf '\033[1m==>\033[0m pre-push: scripts/task check\n'
+"$root/scripts/task" check

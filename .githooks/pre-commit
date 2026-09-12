@@ -1,0 +1,12 @@
+#!/bin/sh
+# Fast gate: formatting and lint. The full suite runs in pre-push.
+set -eu
+root=$(git rev-parse --show-toplevel)
+
+# Nothing staged means nothing to check (e.g. `git commit` during a rebase).
+git diff --cached --quiet && exit 0
+
+printf '\033[1m==>\033[0m pre-commit: fmt:check\n'
+"$root/scripts/task" fmt:check
+printf '\033[1m==>\033[0m pre-commit: lint\n'
+"$root/scripts/task" lint

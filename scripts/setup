@@ -1,0 +1,15 @@
+#!/bin/sh
+# Run once after cloning: wire the tracked git hooks and verify the toolchain.
+set -eu
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+printf '==> Wiring core.hooksPath -> .githooks\n'
+git config core.hooksPath .githooks
+chmod +x .githooks/* scripts/*
+
+printf '==> Fetching the pinned toolchain\n'
+cargo --version >/dev/null
+
+printf '==> Environment check\n'
+exec ./scripts/agent doctor

@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose something the tool should be able to do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The bar is a concrete problem, not a general capability. Describe what
+        you were trying to do when you needed this.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you were trying to do, and where the tool got in the way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+      description: If it is a new flag or subcommand, show the invocation and its output.
+      placeholder: |
+        $ yoghurt --format json Ada
+        {"greeting":"Hello, Ada!"}
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: Workarounds, other tools, or why the existing behaviour does not suffice.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This would be a breaking change to existing behaviour
+          required: false
+        - label: I am willing to open the pull request
+          required: false

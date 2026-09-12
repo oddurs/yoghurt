@@ -1,0 +1,66 @@
+name: Bug report
+description: Something behaves differently from what it says it does.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A reproduction is worth more than a description.
+        For security vulnerabilities, use the private advisory link instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, including the exact output and exit code.
+      placeholder: |
+        $ yoghurt Ada
+        Hello, world!
+        (expected "Hello, Ada!")
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The smallest sequence that shows the problem.
+      placeholder: |
+        1. Build with `cargo build --release`
+        2. Run `...`
+        3. Observe `...`
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `yoghurt --version`, or the commit SHA you built.
+      placeholder: yoghurt 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and toolchain
+      description: OS and `rustc --version`.
+      placeholder: macOS 15.3 (arm64), rustc 1.98.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Logs, a stack trace, or what you have already ruled out.
+    validations:
+      required: false

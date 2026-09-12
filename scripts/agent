@@ -1,0 +1,247 @@
+#!/bin/sh
+# The workflow: one unit of work -> one worktree -> one branch -> one pull request.
+# Every subcommand is idempotent, says what it is about to do, and fails loudly.
+set -eu
+
+say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
+info() { printf '    %s\n' "$*"; }
+die() {
+	printf '\033[31merror:\033[0m %s\n' "$*" >&2
+	exit 1
+}
+
+BRANCH_RE='^(feat|fix|chore|docs|perf|refactor|test)/[a-z0-9][a-z0-9._-]*$'
+
+root() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git repository"; }
+
+# The primary checkout, even when invoked from a linked worktree.
+main_root() {
+	common=$(git rev-parse --path-format=absolute --git-common-dir) || die "not a git repository"
+	dirname "$common"
+}
+
+repo_name() { basename "$(main_root)"; }
+
+worktree_base() { printf '%s/.worktrees/%s' "$(dirname "$(main_root)")" "$(repo_name)"; }
+
+# Never hardcode the default branch; ask the remote, then fall back.
+default_branch() {
+	if ref=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); then
+		printf '%s' "${ref#origin/}"
+		return
+	fi
+	if head=$(git ls-remote --symref origin HEAD 2>/dev/null | sed -n 's#^ref: refs/heads/\([^[:space:]]*\).*#\1#p') &&
+		[ -n "$head" ]; then
+		printf '%s' "$head"
+		return
+	fi
+	git config --get init.defaultBranch 2>/dev/null || printf 'main'
+}
+
+current_branch() { git rev-parse --abbrev-ref HEAD; }
+
+require_hooks() {
+	[ "$(git config --get core.hooksPath || true)" = ".githooks" ] ||
+		die "git hooks are not wired up. Run: scripts/setup"
+}
+
+cmd_doctor() {
+	say "Checking the development environment"
+	problems=0
+	report_ok() { info "ok    $*"; }
+	report_bad() {
+		info "FAIL  $*"
+		problems=$((problems + 1))
+	}
+
+	for tool in git gh cargo rustc; do
+		if command -v "$tool" >/dev/null 2>&1; then
+			report_ok "$tool ($($tool --version 2>&1 | head -1))"
+		else
+			report_bad "$tool is not installed"
+		fi
+	done
+
+	if gh auth status >/dev/null 2>&1; then
+		report_ok "gh is authenticated"
+	else
+		report_bad "gh is not authenticated. Run: gh auth login"
+	fi
+
+	if [ "$(git config --get core.hooksPath || true)" = ".githooks" ]; then
+		report_ok "core.hooksPath is .githooks"
+	else
+		info "      wiring core.hooksPath -> .githooks"
+		git config core.hooksPath .githooks
+		report_ok "core.hooksPath is .githooks"
+	fi
+
+	for hook in commit-msg pre-commit pre-push; do
+		if [ -x "$(main_root)/.githooks/$hook" ]; then
+			report_ok ".githooks/$hook is executable"
+		else
+			report_bad ".githooks/$hook is missing or not executable"
+		fi
+	done
+
+	if [ -x "$(main_root)/scripts/task" ]; then
+		report_ok "scripts/task is executable"
+	else
+		report_bad "scripts/task is missing or not executable"
+	fi
+
+	if [ -z "$(git status --porcelain)" ]; then
+		report_ok "working tree is clean"
+	else
+		report_bad "working tree has uncommitted changes"
+	fi
+
+	if git remote get-url origin >/dev/null 2>&1; then
+		report_ok "origin is $(git remote get-url origin)"
+	else
+		report_bad "no origin remote configured"
+	fi
+
+	[ "$problems" -eq 0 ] || die "$problems problem(s) found above"
+	say "All good."
+}
+
+cmd_start() {
+	branch=${1:-}
+	[ -n "$branch" ] || die "usage: scripts/agent start <type>/<slug>"
+	printf '%s' "$branch" | grep -Eq "$BRANCH_RE" ||
+		die "branch must match $BRANCH_RE (type is one of feat fix chore docs perf refactor test)"
+
+	base=$(default_branch)
+	dir="$(worktree_base)/$branch"
+
+	[ -e "$dir" ] && die "worktree already exists at $dir"
+	git show-ref --quiet "refs/heads/$branch" && die "branch $branch already exists"
+
+	say "Fetching origin"
+	git fetch --quiet origin
+
+	start_point="origin/$base"
+	git rev-parse --verify --quiet "$start_point" >/dev/null || start_point="$base"
+
+	say "Creating worktree $dir from $start_point"
+	mkdir -p "$(dirname "$dir")"
+	git worktree add -b "$branch" "$dir" "$start_point"
+
+	say "Ready. Move into it:"
+	printf '\n    cd %s\n\n' "$dir"
+}
+
+cmd_check() { exec "$(main_root)/scripts/task" check; }
+
+cmd_commit() {
+	[ "$#" -gt 0 ] || die "usage: scripts/agent commit <message> [git-commit-args...]"
+	require_hooks
+	say "Committing (hooks validate the message and the tree)"
+	git commit -m "$@"
+}
+
+cmd_pr() {
+	draft=""
+	[ "${1:-}" = "--draft" ] && draft="--draft"
+
+	branch=$(current_branch)
+	base=$(default_branch)
+	[ "$branch" != "$base" ] || die "refusing to open a pull request from $base"
+
+	say "Running scripts/task check"
+	"$(main_root)/scripts/task" check
+
+	say "Pushing $branch"
+	git push -u origin "$branch"
+
+	if url=$(gh pr view --json url --jq .url 2>/dev/null); then
+		say "Pull request already open"
+	else
+		say "Opening pull request"
+		gh pr create --base "$base" --fill $draft
+		url=$(gh pr view --json url --jq .url)
+	fi
+	printf '\n    %s\n\n' "$url"
+}
+
+cmd_sync() {
+	base=$(default_branch)
+	branch=$(current_branch)
+	[ "$branch" != "$base" ] || die "nothing to sync: already on $base"
+	say "Rebasing $branch onto origin/$base"
+	git fetch --quiet origin
+	git rebase "origin/$base"
+}
+
+cmd_done() {
+	branch=$(current_branch)
+	base=$(default_branch)
+	[ "$branch" != "$base" ] || die "run this from the branch worktree, not $base"
+
+	state=$(gh pr view "$branch" --json state --jq .state 2>/dev/null || printf 'NONE')
+	[ "$state" = "MERGED" ] || die "pull request for $branch is $state, not MERGED"
+
+	dir=$(git rev-parse --show-toplevel)
+	main=$(main_root)
+	[ "$dir" != "$main" ] || die "refusing to remove the primary checkout"
+
+	say "Removing worktree $dir"
+	cd "$main"
+	git worktree remove --force "$dir"
+	git worktree prune
+
+	say "Deleting local branch $branch"
+	git branch -D "$branch"
+
+	say "Pruning remote-tracking branches"
+	git fetch --prune --quiet origin
+	git checkout "$base" --quiet
+	git pull --ff-only --quiet origin "$base"
+
+	say "Done. You are back in $main on $base."
+}
+
+cmd_list() {
+	say "Worktrees"
+	git worktree list --porcelain |
+		awk '/^worktree /{d=$2} /^branch /{sub("refs/heads/","",$2); print d"\t"$2}' |
+		while IFS="$(printf '\t')" read -r dir branch; do
+			state=$(gh pr view "$branch" --json state,number --jq '"#\(.number) \(.state)"' 2>/dev/null || printf 'no pull request')
+			printf '    %-20s %-50s %s\n' "$branch" "$dir" "$state"
+		done
+}
+
+usage() {
+	cat <<'USAGE'
+Usage: scripts/agent <command>
+
+  doctor              Check tooling, auth, hooks, and the working tree
+  start <type>/<slug> Create a branch and its worktree from the default branch
+  check               Run scripts/task check
+  commit <msg>        Commit; hooks enforce Conventional Commits
+  pr [--draft]        Check, push, and open the pull request
+  sync                Rebase this branch onto the default branch
+  done                Confirm the PR merged, then clean up worktree and branch
+  list                Worktrees with their branches and pull request state
+USAGE
+}
+
+command=${1:-}
+[ "$#" -gt 0 ] && shift
+case "$command" in
+doctor) cmd_doctor "$@" ;;
+start) cmd_start "$@" ;;
+check) cmd_check "$@" ;;
+commit) cmd_commit "$@" ;;
+pr) cmd_pr "$@" ;;
+sync) cmd_sync "$@" ;;
+done) cmd_done "$@" ;;
+list) cmd_list "$@" ;;
+-h | --help | help | "") usage ;;
+*)
+	printf 'scripts/agent: unknown command `%s`\n\n' "$command" >&2
+	usage >&2
+	exit 2
+	;;
+esac
