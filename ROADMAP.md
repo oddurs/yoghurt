@@ -4,14 +4,13 @@
 
 ## v0.1 — See it
 
-`··········` 0% · 0 of 16 done · due 2026-10-20
+`#·········` 6% · 1 of 16 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ### backlog
 
 - [ ] `0007` Take the terminal dependency <sup>chore · p0 · runtime</sup>
-- [ ] `0008` What does Homebrew's JSON actually give us? <sup>spike · p0 · source</sup>
 - [ ] `0009` Define the fact vocabulary every source emits <sup>feature · p0 · source</sup>
 - [ ] `0010` Walk PATH and the application directories for ground truth <sup>feature · p0 · scan</sup>
 - [ ] `0011` Read Homebrew's inventory in one call <sup>feature · p0 · source</sup>
@@ -26,6 +25,10 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [ ] `0021` Print a table when stdout is not a terminal <sup>feature · p1 · cli</sup>
 - [ ] `0022` Say macOS, and make CI say so too <sup>chore · p1 · packaging</sup>
 - [ ] `0023` Rewrite the README around what it shows <sup>docs · p1 · docs</sup>
+
+### done
+
+- [x] `0008` What does Homebrew's JSON actually give us? <sup>spike · p0 · source</sup>
 
 ## v0.2 — All of it
 
