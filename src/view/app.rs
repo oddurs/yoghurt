@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use crate::model::graph::Graph;
-use crate::view::row::{Row, build};
+use crate::view::row::{Axis, Row, build};
 
 /// The interface's whole state.
 pub struct App {
@@ -29,13 +29,18 @@ pub struct App {
     pub selected: usize,
     /// The first visible row.
     pub offset: usize,
+    /// What the list is grouped by.
+    pub axis: Axis,
+    /// What counts as now, for grouping by age. Injected so tests are stable.
+    pub now: std::time::SystemTime,
 }
 
 impl App {
     /// Look at this machine.
     #[must_use]
     pub fn new(graph: Graph) -> Self {
-        let rows = build(&graph, &BTreeSet::new());
+        let now = std::time::SystemTime::now();
+        let rows = build(&graph, &BTreeSet::new(), Axis::default(), now);
         Self {
             graph,
             host: hostname(),
@@ -46,6 +51,8 @@ impl App {
             collapsed: BTreeSet::new(),
             selected: 0,
             offset: 0,
+            axis: Axis::default(),
+            now,
         }
     }
 
@@ -55,11 +62,21 @@ impl App {
     /// a different package each time would make the list unusable.
     pub fn rebuild(&mut self) {
         let anchor = self.rows.get(self.selected).cloned();
-        self.rows = build(&self.graph, &self.collapsed);
+        self.rows = build(&self.graph, &self.collapsed, self.axis, self.now);
         self.selected = anchor
             .and_then(|was| self.rows.iter().position(|row| same_thing(row, &was)))
             .unwrap_or(self.selected)
             .min(self.rows.len().saturating_sub(1));
+    }
+
+    /// Group by the next axis round.
+    ///
+    /// Folds are per axis: a group folded under `source` means nothing under
+    /// `size`, and carrying them across would hide rows for no reason.
+    pub fn cycle_axis(&mut self) {
+        self.axis = self.axis.next();
+        self.collapsed.clear();
+        self.rebuild();
     }
 
     /// Move the cursor, stopping at both ends rather than wrapping.

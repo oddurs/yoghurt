@@ -65,8 +65,9 @@ pub fn handle(app: &mut App, key: KeyEvent, page: usize) {
         KeyCode::Up | KeyCode::Char('k') => app.move_by(-1),
         KeyCode::PageDown | KeyCode::Char('f') => app.move_by(page),
         KeyCode::PageUp | KeyCode::Char('b') => app.move_by(-page),
-        KeyCode::Char('g') | KeyCode::Home => app.selected = 0,
-        KeyCode::Char('G') | KeyCode::End => app.move_by(isize::MAX),
+        KeyCode::Home => app.selected = 0,
+        KeyCode::End => app.move_by(isize::MAX),
+        KeyCode::Char('g') => app.cycle_axis(),
         KeyCode::Char(' ') | KeyCode::Enter => app.toggle_group(),
         _ => {}
     }
@@ -126,12 +127,21 @@ mod tests {
     }
 
     #[test]
-    fn g_and_shift_g_go_to_the_ends() {
+    fn home_and_end_go_to_the_ends() {
         let mut app = machine();
-        press(&mut app, KeyCode::Char('G'));
+        press(&mut app, KeyCode::End);
         assert_eq!(app.selected, app.rows.len() - 1);
-        press(&mut app, KeyCode::Char('g'));
+        press(&mut app, KeyCode::Home);
         assert_eq!(app.selected, 0);
+    }
+
+    #[test]
+    fn g_cycles_the_grouping_axis() {
+        use crate::view::row::Axis;
+        let mut app = machine();
+        assert_eq!(app.axis, Axis::Source);
+        press(&mut app, KeyCode::Char('g'));
+        assert_eq!(app.axis, Axis::Role);
     }
 
     #[test]

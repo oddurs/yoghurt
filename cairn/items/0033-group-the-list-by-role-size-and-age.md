@@ -2,12 +2,13 @@
 id: 33
 title: Group the list by role, size and age
 type: feature
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 17
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p1
 effort: m
 area: list
@@ -38,3 +39,7 @@ what a treemap would tell you and arrives two milestones earlier.
 - [ ] Group headers show count, total size and a share bar
 - [ ] The selected item stays selected across a change of axis
 - [ ] Collapse state is remembered per axis within a session
+
+## 2026-09-14
+
+Found a real inconsistency while checking this against the machine: the strip said 87 wanted and grouping by role said 65, because State collapsed Outdated over Fine. Being out of date does not change whether you asked for something. State is now provenance only, outdated is an orthogonal flag on the row, and the two numbers agree.

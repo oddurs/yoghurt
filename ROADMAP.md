@@ -35,7 +35,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`··········` 0% · 0 of 15 done · due 2026-12-01
+`#·········` 7% · 1 of 15 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
@@ -51,11 +51,14 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [ ] `0030` Name the binaries nobody claims <sup>feature · p1 · source</sup>
 - [ ] `0031` Open from cache and refresh behind you <sup>feature · p0 · scan</sup>
 - [ ] `0032` Scan every source at once, and survive one failing <sup>feature · p0 · runtime</sup>
-- [ ] `0033` Group the list by role, size and age <sup>feature · p1 · list</sup>
 - [ ] `0034` Say everything without colour <sup>feature · p1 · theme</sup>
 - [ ] `0035` Adding a source is one file <sup>docs · p2 · docs</sup>
 - [ ] `0036` Test every adapter against a fixture tree <sup>chore · p0 · testing</sup>
 - [ ] `0058` Report a scan that only partly worked <sup>feature · p0 · scan</sup>
+
+### done
+
+- [x] `0033` Group the list by role, size and age <sup>feature · p1 · list</sup>
 
 ## v0.3 — Contention
 

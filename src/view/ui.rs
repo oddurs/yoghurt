@@ -13,7 +13,7 @@ use ratatui::widgets::Paragraph;
 use std::fmt::Write as _;
 
 use crate::view::app::App;
-use crate::view::row::{Item, Row, State};
+use crate::view::row::{Axis, Item, Row, State};
 
 /// Below this the header drops to the identity and the counts.
 const NARROW: u16 = 80;
@@ -31,7 +31,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     draw_header(frame, app, header);
     draw_strip(frame, app, strip);
-    draw_rule(frame, rule);
+    draw_rule(frame, app, rule);
     draw_body(frame, app, body);
     draw_footer(frame, footer);
 }
@@ -132,8 +132,12 @@ fn facet_colour(label: &str) -> Color {
     }
 }
 
-fn draw_rule(frame: &mut Frame, area: Rect) {
-    let rule = "─".repeat(usize::from(area.width));
+fn draw_rule(frame: &mut Frame, app: &App, area: Rect) {
+    let title = format!("─ by {} ", app.axis.label());
+    let rule = format!(
+        "{title}{}",
+        "─".repeat(usize::from(area.width).saturating_sub(title.chars().count()))
+    );
     frame.render_widget(
         Paragraph::new(Line::from(Span::styled(
             rule,
@@ -151,6 +155,7 @@ fn draw_rule(frame: &mut Frame, area: Rect) {
 /// There is no source column. The list is grouped by source, so the heading
 /// above every row already says it, and repeating it costs twelve columns for
 /// nothing. When 0033 adds the other grouping axes it comes back for those.
+const SHOW_SOURCE: u16 = 96;
 const SHOW_ROLE: u16 = 80;
 const SHOW_SIZE: u16 = 68;
 const SHOW_VERSION: u16 = 56;
@@ -174,20 +179,23 @@ fn draw_body(frame: &mut Frame, app: &App, area: Rect) {
     }
 
     let height = usize::from(area.height);
+    // Grouping by source makes a source column redundant; any other axis does
+    // not, so it comes back.
+    let show_source = app.axis != Axis::Source;
     let lines: Vec<Line<'_>> = app
         .rows
         .iter()
         .enumerate()
         .skip(app.offset)
         .take(height)
-        .map(|(index, row)| line_for(row, index == app.selected, area.width))
+        .map(|(index, row)| line_for(row, index == app.selected, area.width, show_source))
         .collect();
 
     frame.render_widget(Paragraph::new(lines), area);
 }
 
 /// One line of the list.
-fn line_for(row: &Row, selected: bool, width: u16) -> Line<'_> {
+fn line_for(row: &Row, selected: bool, width: u16, show_source: bool) -> Line<'_> {
     let spans = match row {
         Row::Group {
             key,
@@ -195,7 +203,7 @@ fn line_for(row: &Row, selected: bool, width: u16) -> Line<'_> {
             bytes,
             collapsed,
         } => group_line(key, *count, *bytes, *collapsed, width),
-        Row::Item(item) => item_line(item, width),
+        Row::Item(item) => item_line(item, width, show_source),
     };
     let line = Line::from(spans);
     if selected {
@@ -226,7 +234,7 @@ fn group_line(key: &str, count: usize, bytes: u64, collapsed: bool, width: u16) 
 ///
 /// Everything right of the name is fixed width and right-aligned, so the eye
 /// runs down a column instead of hunting along each row.
-fn item_line(item: &Item, width: u16) -> Vec<Span<'_>> {
+fn item_line(item: &Item, width: u16, show_source: bool) -> Vec<Span<'_>> {
     let mut right = String::new();
     if width >= SHOW_VERSION {
         let _ = write!(
@@ -236,7 +244,15 @@ fn item_line(item: &Item, width: u16) -> Vec<Span<'_>> {
         );
     }
     if width >= SHOW_ROLE {
-        let _ = write!(right, "{:>8}  ", item.state.label());
+        let label = if item.outdated {
+            "outdated"
+        } else {
+            item.state.label()
+        };
+        let _ = write!(right, "{label:>8}  ");
+    }
+    if show_source && width >= SHOW_SOURCE {
+        let _ = write!(right, "{:>10}  ", trim(&item.source, 10));
     }
     if width >= SHOW_SIZE {
         let _ = write!(right, "{:>6}  ", super::plain::size(item.bytes));
@@ -263,7 +279,6 @@ fn item_line(item: &Item, width: u16) -> Vec<Span<'_>> {
 fn state_colour(state: State) -> Color {
     match state {
         State::Fine => Color::Green,
-        State::Outdated => Color::Yellow,
         State::PulledIn => Color::Blue,
         State::Unexplained | State::Orphan => Color::Magenta,
         State::Broken => Color::Red,
@@ -293,8 +308,7 @@ fn draw_footer(frame: &mut Frame, area: Rect) {
     let keys = [
         ("↑↓", "move"),
         ("space", "fold"),
-        ("g", "top"),
-        ("G", "end"),
+        ("g", "group"),
         ("q", "quit"),
     ];
     let mut spans = vec![Span::raw(" ")];
