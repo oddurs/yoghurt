@@ -162,6 +162,17 @@ pub enum Fact {
         text: String,
     },
 
+    /// A label somebody inferred, rather than observed.
+    ///
+    /// Distinct from [`Fact::Describes`], which is a sentence a source wrote
+    /// down. This is a guess, and it stays marked as one everywhere it appears.
+    Labelled {
+        /// Which package.
+        package: PackageId,
+        /// The category it was put in.
+        label: String,
+    },
+
     /// A newer version than the installed one is published.
     Outdated {
         /// Which package.

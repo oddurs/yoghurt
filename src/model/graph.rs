@@ -24,6 +24,9 @@ pub struct Package {
     pub wanted: bool,
     /// What it is for, where a source says.
     pub describes: Option<String>,
+    /// What something inferred it is, if anything did. A guess, not an
+    /// observation.
+    pub labelled: Option<String>,
     /// When it arrived.
     pub installed_at: Option<SystemTime>,
     /// Whether a newer version is published.
@@ -156,6 +159,9 @@ impl Graph {
                 }
                 Fact::Describes { package, text } => {
                     graph.packages.entry(package).or_default().describes = Some(text);
+                }
+                Fact::Labelled { package, label } => {
+                    graph.packages.entry(package).or_default().labelled = Some(label);
                 }
                 Fact::Outdated { package, latest } => {
                     let entry = graph.packages.entry(package).or_default();

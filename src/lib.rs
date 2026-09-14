@@ -11,10 +11,12 @@
 //! - [`model`] — the graph, and the questions that can be asked of it
 //! - [`view`] — projections of the graph, holding no rules of their own
 
+pub mod config;
 pub mod model;
 pub mod source;
 pub mod view;
 
+pub use config::Config;
 pub use model::fact::{Fact, PackageId, ScanError, Source};
 pub use model::graph::Graph;
 pub use model::question::{Provenance, Resolution};
