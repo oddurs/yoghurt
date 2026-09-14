@@ -2,12 +2,13 @@
 id: 26
 title: Read cargo and rustup
 type: feature
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 9
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p0
 effort: s
 area: source
@@ -34,3 +35,7 @@ Shims are owned by rustup, not cargo, so they stop being counted twice.
 - [ ] Toolchains appear with their channel and target
 - [ ] Neither being installed yields no facts and no error
 - [ ] Parsed from a fixture in tests
+
+## 2026-09-14
+
+On the real machine: 3 sources now, cargo 21 and rustup 9. Two binaries in ~/.cargo/bin stay orphans — ptop and wasm-pack — because cargo genuinely never recorded them in .crates2.json. That is the right answer rather than a gap.

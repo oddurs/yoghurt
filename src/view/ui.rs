@@ -479,6 +479,7 @@ mod tests {
             installed: None,
             outdated: true,
             provides: Vec::new(),
+            describes: None,
         };
         assert_eq!(
             glyph(&item),

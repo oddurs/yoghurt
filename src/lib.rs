@@ -18,5 +18,6 @@ pub mod view;
 pub use model::fact::{Fact, PackageId, ScanError, Source};
 pub use model::graph::Graph;
 pub use model::question::{Provenance, Resolution};
+pub use source::cargo::{Cargo, Rustup};
 pub use source::homebrew::Homebrew;
 pub use source::walk::Walk;

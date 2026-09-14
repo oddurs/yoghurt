@@ -26,6 +26,7 @@ use std::time::{Duration, SystemTime};
 use serde::Deserialize;
 
 use crate::model::fact::{Fact, PackageId, ScanError, Source};
+use crate::source::{children, size_of};
 
 /// Homebrew, as a source of facts.
 pub struct Homebrew {
@@ -129,6 +130,8 @@ struct Info {
 struct InfoFormula {
     name: String,
     #[serde(default)]
+    desc: Option<String>,
+    #[serde(default)]
     outdated: bool,
     #[serde(default)]
     linked_keg: Option<String>,
@@ -168,6 +171,8 @@ struct RuntimeDependency {
 struct InfoCask {
     token: String,
     #[serde(default)]
+    desc: Option<String>,
+    #[serde(default)]
     installed: Option<String>,
     #[serde(default)]
     installed_time: Option<i64>,
@@ -179,36 +184,6 @@ fn unix(seconds: i64) -> Option<SystemTime> {
     u64::try_from(seconds)
         .ok()
         .map(|s| SystemTime::UNIX_EPOCH + Duration::from_secs(s))
-}
-
-/// Every directory entry that is not a dotfile.
-fn children(dir: &Path) -> Vec<PathBuf> {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return Vec::new();
-    };
-    let mut found: Vec<PathBuf> = entries
-        .filter_map(Result::ok)
-        .filter(|e| !e.file_name().to_string_lossy().starts_with('.'))
-        .map(|e| e.path())
-        .collect();
-    found.sort();
-    found
-}
-
-/// Bytes under a directory, following nothing.
-///
-/// A keg is a few hundred files, so this is a plain recursive walk rather than
-/// anything clever. Symlinks are counted as their own size, never followed —
-/// a keg that links into another keg must not be charged for it twice.
-fn size_of(path: &Path) -> u64 {
-    let Ok(metadata) = fs::symlink_metadata(path) else {
-        return 0;
-    };
-    if metadata.is_dir() {
-        children(path).iter().map(|child| size_of(child)).sum()
-    } else {
-        metadata.len()
-    }
 }
 
 impl Source for Homebrew {
@@ -306,6 +281,12 @@ impl Measured {
         let Some(formula) = known else {
             return;
         };
+        if let Some(desc) = formula.desc.clone() {
+            facts.push(Fact::Describes {
+                package: id.clone(),
+                text: desc,
+            });
+        }
         if formula.outdated {
             facts.push(Fact::Outdated {
                 package: id.clone(),
@@ -370,6 +351,12 @@ impl Measured {
         let Some(cask) = known else {
             return;
         };
+        if let Some(desc) = cask.desc.clone() {
+            facts.push(Fact::Describes {
+                package: id.clone(),
+                text: desc,
+            });
+        }
         if cask.outdated {
             facts.push(Fact::Outdated {
                 package: id.clone(),

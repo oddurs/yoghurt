@@ -150,6 +150,18 @@ pub enum Fact {
         at: SystemTime,
     },
 
+    /// What this package is for, in a sentence somebody wrote.
+    ///
+    /// Homebrew has one for every formula, npm calls it `description`, and
+    /// cargo knows where a crate came from. It is what makes the difference
+    /// between a list of names and a list you can read.
+    Describes {
+        /// Which package.
+        package: PackageId,
+        /// The sentence.
+        text: String,
+    },
+
     /// A newer version than the installed one is published.
     Outdated {
         /// Which package.
