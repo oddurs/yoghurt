@@ -37,7 +37,12 @@ than shown as zero.
 
 That is the whole of it so far. The mouse-first terminal interface this is
 groundwork for — the inventory, the disk treemap, and the `PATH` resolver — is
-designed in [docs/interface.md](docs/interface.md) but not yet built.
+designed in [docs/interface.md](docs/interface.md) and planned in
+[ROADMAP.md](ROADMAP.md), but not yet built.
+
+yoghurt is macOS only, and it never writes to your machine: it does not install,
+uninstall, upgrade, or touch your shell configuration. The only things it writes
+are its own cache and config.
 
 ## Install
 
