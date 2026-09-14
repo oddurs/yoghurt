@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 use std::io::{self, Write as _};
 use std::process::ExitCode;
 
-use yoghurt::{Source, abbreviate, survey};
+use yoghurt::{SourceSummary, abbreviate, survey};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -52,7 +52,7 @@ fn resolve(args: &[String]) -> Result<String, String> {
 ///
 /// Counts are right-aligned in a fixed column so the eye can run down them
 /// rather than hunt along each row.
-fn report(sources: &[Source]) -> String {
+fn report(sources: &[SourceSummary]) -> String {
     if sources.is_empty() {
         return "yoghurt found no package sources on this machine.".to_owned();
     }
@@ -82,14 +82,14 @@ fn report(sources: &[Source]) -> String {
 mod tests {
     use super::{VERSION, report, resolve};
     use std::path::PathBuf;
-    use yoghurt::Source;
+    use yoghurt::SourceSummary;
 
     fn args(items: &[&str]) -> Vec<String> {
         items.iter().map(|s| (*s).to_owned()).collect()
     }
 
-    fn source(name: &'static str, count: usize) -> Source {
-        Source {
+    fn source(name: &'static str, count: usize) -> SourceSummary {
+        SourceSummary {
             name,
             root: PathBuf::from("/opt/homebrew/Cellar"),
             count,
