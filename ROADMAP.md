@@ -44,7 +44,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`##········` 19% · 3 of 16 done · due 2026-12-01
+`###·······` 25% · 4 of 16 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
@@ -62,12 +62,12 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [ ] `0035` Adding a source is one file <sup>docs · p2 · docs</sup>
 - [ ] `0036` Test every adapter against a fixture tree <sup>chore · p0 · testing</sup>
 - [ ] `0058` Report a scan that only partly worked <sup>feature · p0 · scan</sup>
-- [ ] `0073` Claim macOS applications so they stop reading as orphans <sup>feature · p0 · source</sup>
 
 ### done
 
 - [x] `0026` Read cargo and rustup <sup>feature · p0 · source</sup>
 - [x] `0033` Group the list by role, size and age <sup>feature · p1 · list</sup>
+- [x] `0073` Claim macOS applications so they stop reading as orphans <sup>feature · p0 · source</sup>
 - [x] `0078` Read what Homebrew already says a package is for <sup>feature · p1 · source</sup>
 
 ## v0.3 — Contention

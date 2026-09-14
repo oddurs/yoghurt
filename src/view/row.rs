@@ -204,12 +204,13 @@ impl Filter {
             return true;
         }
         let needle = self.query.to_lowercase();
-        item.name.to_lowercase().contains(&needle)
-            || item.source.to_lowercase().contains(&needle)
-            || item
-                .provides
-                .iter()
-                .any(|c| c.to_lowercase().contains(&needle))
+        let has = |text: &str| text.to_lowercase().contains(&needle);
+
+        has(&item.name)
+            || has(&item.source)
+            || item.provides.iter().any(|command| has(command))
+            // So that `video` finds the codecs and `figma` finds what signed it.
+            || item.describes.as_deref().is_some_and(has)
     }
 
     /// How the narrowing is described in the rule.
@@ -1128,6 +1129,41 @@ mod tests {
         assert!(
             none.is_empty(),
             "ripgrep is wanted, so it is not also pulled in"
+        );
+    }
+
+    #[test]
+    fn a_query_matches_what_a_package_says_it_is_for() {
+        let graph = Graph::from_facts([
+            Fact::Package {
+                id: PackageId::new("homebrew", "ripgrep"),
+                version: Some("15.2.0".to_owned()),
+            },
+            Fact::Wanted {
+                package: PackageId::new("homebrew", "ripgrep"),
+            },
+            Fact::Describes {
+                package: PackageId::new("homebrew", "ripgrep"),
+                text: "Search tool like grep and The Silver Searcher".to_owned(),
+            },
+        ]);
+        let filter = Filter {
+            facet: None,
+            query: "silver searcher".to_owned(),
+        };
+        let rows = build(
+            &graph,
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            false,
+            &filter,
+            epoch(),
+        );
+        assert_eq!(
+            names(&rows),
+            vec!["[homebrew 1]", "ripgrep"],
+            "a description is how you find something whose name you do not know"
         );
     }
 

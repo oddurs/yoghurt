@@ -10,6 +10,7 @@
 
 pub mod cargo;
 pub mod homebrew;
+pub mod macos;
 pub mod walk;
 
 use std::fs;
