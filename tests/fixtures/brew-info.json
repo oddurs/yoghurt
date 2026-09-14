@@ -1,0 +1,138 @@
+{
+  "formulae": [
+    {
+      "name": "fmt",
+      "full_name": "fmt",
+      "tap": "homebrew/core",
+      "desc": "Open-source formatting library for C++",
+      "homepage": "https://fmt.dev/",
+      "outdated": false,
+      "keg_only": false,
+      "linked_keg": "12.2.0",
+      "versions": {
+        "stable": "12.2.0",
+        "head": "HEAD",
+        "bottle": true
+      },
+      "installed": [
+        {
+          "version": "12.1.0",
+          "installed_on_request": false,
+          "time": 1770184907,
+          "runtime_dependencies": []
+        },
+        {
+          "version": "12.2.0",
+          "installed_on_request": false,
+          "time": 1789355641,
+          "runtime_dependencies": []
+        }
+      ]
+    },
+    {
+      "name": "pcre2",
+      "full_name": "pcre2",
+      "tap": "homebrew/core",
+      "desc": "Perl compatible regular expressions library with a new API",
+      "homepage": "https://www.pcre.org/",
+      "outdated": false,
+      "keg_only": false,
+      "linked_keg": "10.48",
+      "versions": {
+        "stable": "10.48",
+        "head": "HEAD",
+        "bottle": true
+      },
+      "installed": [
+        {
+          "version": "10.47_1",
+          "installed_on_request": false,
+          "time": 1771532808,
+          "runtime_dependencies": []
+        },
+        {
+          "version": "10.48",
+          "installed_on_request": false,
+          "time": 1789355631,
+          "runtime_dependencies": []
+        }
+      ]
+    },
+    {
+      "name": "ripgrep",
+      "full_name": "ripgrep",
+      "tap": "homebrew/core",
+      "desc": "Search tool like grep and The Silver Searcher",
+      "homepage": "https://github.com/BurntSushi/ripgrep",
+      "outdated": false,
+      "keg_only": false,
+      "linked_keg": "15.2.0",
+      "versions": {
+        "stable": "15.2.0",
+        "head": "HEAD",
+        "bottle": true
+      },
+      "installed": [
+        {
+          "version": "15.2.0",
+          "installed_on_request": true,
+          "time": 1789355634,
+          "runtime_dependencies": [
+            {
+              "full_name": "pcre2",
+              "version": "10.48",
+              "declared_directly": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "casks": [
+    {
+      "token": "inkscape",
+      "full_token": "inkscape",
+      "tap": "homebrew/cask",
+      "name": [
+        "Inkscape"
+      ],
+      "desc": "Vector graphics editor",
+      "homepage": "https://inkscape.org/",
+      "version": "1.4.4",
+      "installed": "1.4.4",
+      "installed_time": 1778819815,
+      "outdated": false,
+      "artifacts": [
+        {
+          "app": [
+            "Inkscape.app"
+          ],
+          "target": "/Applications/Inkscape.app"
+        },
+        {
+          "command_wrapper": [
+            "inkscape",
+            {
+              "executable": "/Applications/Inkscape.app/Contents/MacOS/inkscape"
+            }
+          ],
+          "target": "/opt/homebrew/bin/inkscape"
+        },
+        {
+          "zap": [
+            {
+              "trash": [
+                "~/.config/inkscape",
+                "~/Library/Application Support/Inkscape",
+                "~/Library/Application Support/org.inkscape.Inkscape",
+                "~/Library/Caches/org.inkscape.Inkscape*",
+                "~/Library/Preferences/org.inkscape.Inkscape.plist",
+                "~/Library/Saved Application State/org.inkscape.Inkscape.savedState"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
