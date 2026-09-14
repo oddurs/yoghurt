@@ -10,7 +10,7 @@ use std::process::ExitCode;
 use yoghurt::model::fact::Source as _;
 use yoghurt::view::row::{Axis, Facet, Sort};
 use yoghurt::view::{app::App, plain, run, testkit};
-use yoghurt::{Cargo, Graph, Homebrew, Rustup, Walk};
+use yoghurt::{Applications, Cargo, Graph, Homebrew, Rustup, Walk};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -225,6 +225,7 @@ fn survey() -> Result<Graph, String> {
         Homebrew::from_environment().map(|s| Box::new(s) as Box<dyn yoghurt::model::fact::Source>),
         Cargo::from_environment().map(|s| Box::new(s) as Box<dyn yoghurt::model::fact::Source>),
         Rustup::from_environment().map(|s| Box::new(s) as Box<dyn yoghurt::model::fact::Source>),
+        Some(Box::new(Applications::from_environment()) as Box<dyn yoghurt::model::fact::Source>),
     ]
     .into_iter()
     .flatten()
