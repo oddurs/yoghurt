@@ -44,7 +44,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`#·········` 7% · 1 of 15 done · due 2026-12-01
+`##········` 19% · 3 of 16 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
@@ -52,7 +52,6 @@ Every package manager on the machine, not just Homebrew — and it opens
 
 - [ ] `0024` How do you identify a binary nobody claims? <sup>spike · p0 · source</sup>
 - [ ] `0025` Is shadowing common enough to deserve a view? <sup>spike · p0 · path</sup>
-- [ ] `0026` Read cargo and rustup <sup>feature · p0 · source</sup>
 - [ ] `0027` Read global npm, pnpm and yarn packages <sup>feature · p0 · source</sup>
 - [ ] `0028` Read go, gem, pipx and uv <sup>feature · p1 · source</sup>
 - [ ] `0029` Read application bundles and who signed them <sup>feature · p0 · source</sup>
@@ -67,7 +66,9 @@ Every package manager on the machine, not just Homebrew — and it opens
 
 ### done
 
+- [x] `0026` Read cargo and rustup <sup>feature · p0 · source</sup>
 - [x] `0033` Group the list by role, size and age <sup>feature · p1 · list</sup>
+- [x] `0078` Read what Homebrew already says a package is for <sup>feature · p1 · source</sup>
 
 ## v0.3 — Contention
 
@@ -120,7 +121,7 @@ No new surface. The version somebody who is not Oddur can install in one
 
 ## later — Someday
 
-`··········` 0% · 0 of 6 done
+`··········` 0% · 0 of 7 done
 
 Good ideas that are not on the path to v1.0. Things go here instead of being
 
@@ -132,4 +133,5 @@ Good ideas that are not on the path to v1.0. Things go here instead of being
 - [ ] `0065` Notice changes without being asked <sup>feature · p3 · scan</sup>
 - [ ] `0066` Wear a theme the terminal already has <sup>feature · p3 · theme</sup>
 - [ ] `0067` Compare two machines <sup>feature · p3 · cli</sup>
+- [ ] `0079` Classify packages through OpenRouter, strictly opt in <sup>feature · p3 · source</sup>
 

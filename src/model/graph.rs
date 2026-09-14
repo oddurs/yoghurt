@@ -22,6 +22,8 @@ pub struct Package {
     pub version: Option<String>,
     /// Whether somebody asked for this deliberately.
     pub wanted: bool,
+    /// What it is for, where a source says.
+    pub describes: Option<String>,
     /// When it arrived.
     pub installed_at: Option<SystemTime>,
     /// Whether a newer version is published.
@@ -151,6 +153,9 @@ impl Graph {
                 }
                 Fact::InstalledAt { package, at } => {
                     graph.packages.entry(package).or_default().installed_at = Some(at);
+                }
+                Fact::Describes { package, text } => {
+                    graph.packages.entry(package).or_default().describes = Some(text);
                 }
                 Fact::Outdated { package, latest } => {
                     let entry = graph.packages.entry(package).or_default();

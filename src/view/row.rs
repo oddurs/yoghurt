@@ -434,6 +434,8 @@ pub struct Item {
     /// The command names it puts on the path, so a filter can find a package by
     /// what you actually type.
     pub provides: Vec<String>,
+    /// What it is for, where a source says so.
+    pub describes: Option<String>,
 }
 
 impl Item {
@@ -612,6 +614,7 @@ fn items(graph: &Graph) -> Vec<Item> {
                 installed: package.installed_at,
                 outdated: package.outdated,
                 provides: commands.get(id).cloned().unwrap_or_default(),
+                describes: package.describes.clone(),
             }
         })
         .collect();
@@ -639,6 +642,7 @@ fn items(graph: &Graph) -> Vec<Item> {
                 installed: None,
                 outdated: false,
                 provides: artifact.provides.iter().cloned().collect(),
+                describes: None,
             }),
     );
     items
@@ -1188,6 +1192,7 @@ mod tests {
             installed: None,
             outdated: false,
             provides: provides.iter().map(|c| (*c).to_owned()).collect(),
+            describes: None,
         }
     }
 

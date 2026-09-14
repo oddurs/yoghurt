@@ -10,7 +10,7 @@ use std::process::ExitCode;
 use yoghurt::model::fact::Source as _;
 use yoghurt::view::row::{Axis, Facet, Sort};
 use yoghurt::view::{app::App, plain, run, testkit};
-use yoghurt::{Graph, Homebrew, Walk};
+use yoghurt::{Cargo, Graph, Homebrew, Rustup, Walk};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -215,10 +215,23 @@ fn version() -> String {
 
 /// Read every source and assemble the machine.
 fn survey() -> Result<Graph, String> {
+    // The walk is ground truth and runs first; the adapters lay their claims
+    // against it. A source that is not installed contributes nothing, which is
+    // not a failure.
     let walk = Walk::from_environment();
     let mut facts = walk.scan().map_err(|e| e.to_string())?;
-    if let Some(brew) = Homebrew::from_environment() {
-        facts.extend(brew.scan().map_err(|e| e.to_string())?);
+
+    let sources: Vec<Box<dyn yoghurt::model::fact::Source>> = [
+        Homebrew::from_environment().map(|s| Box::new(s) as Box<dyn yoghurt::model::fact::Source>),
+        Cargo::from_environment().map(|s| Box::new(s) as Box<dyn yoghurt::model::fact::Source>),
+        Rustup::from_environment().map(|s| Box::new(s) as Box<dyn yoghurt::model::fact::Source>),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    for source in sources {
+        facts.extend(source.scan().map_err(|e| e.to_string())?);
     }
     Ok(Graph::from_facts(facts))
 }
