@@ -188,6 +188,17 @@ cmd_done() {
 	main=$(main_root)
 	[ "$dir" != "$main" ] || die "refusing to remove the primary checkout"
 
+	# No child process can change the caller's directory, so say where to go
+	# *before* pulling the ground out — otherwise the next command fails with
+	# "Unable to read current working directory" and the advice is unreadable
+	# because it scrolled past.
+	case "$PWD/" in
+	"$dir"/*)
+		printf '\n\033[1m==>\033[0m This shell is inside the worktree about to be removed.\n'
+		printf '    When this finishes, run:\n\n    cd %s\n\n' "$main"
+		;;
+	esac
+
 	say "Removing worktree $dir"
 	cd "$main"
 	git worktree remove --force "$dir"
@@ -208,7 +219,15 @@ cmd_done() {
 			"$main/.githooks/post-merge" || true
 	fi
 
-	say "Done. You are back in $main on $base."
+	case "$PWD/" in
+	"$dir"/*)
+		say "Done. Your shell is still in a directory that no longer exists:"
+		printf '\n    cd %s\n\n' "$main"
+		;;
+	*)
+		say "Done. $main is on $base."
+		;;
+	esac
 }
 
 cmd_list() {

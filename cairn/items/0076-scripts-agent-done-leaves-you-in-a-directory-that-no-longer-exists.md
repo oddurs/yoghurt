@@ -2,8 +2,9 @@
 id: 76
 title: scripts/agent done leaves you in a directory that no longer exists
 type: bug
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 created: 2026-09-14
 updated: 2026-09-14
 priority: p2
