@@ -56,11 +56,40 @@ pub fn handle(app: &mut App, key: KeyEvent, page: usize) {
     if key.kind == KeyEventKind::Release {
         return;
     }
-    let page = isize::try_from(page.max(1)).unwrap_or(1);
 
+    // While typing, letters are the query rather than commands. Only the keys
+    // that cannot be part of a name stay commands.
+    if app.is_typing() {
+        match key.code {
+            KeyCode::Esc => {
+                app.clear_one();
+            }
+            KeyCode::Enter => app.stop_typing(),
+            KeyCode::Backspace => app.pop_query(),
+            KeyCode::Up => app.move_by(-1),
+            KeyCode::Down => app.move_by(1),
+            KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                app.push_query(c);
+            }
+            KeyCode::Char('c') => app.quit = true,
+            _ => {}
+        }
+        return;
+    }
+
+    let page = isize::try_from(page.max(1)).unwrap_or(1);
     match key.code {
-        KeyCode::Char('q') | KeyCode::Esc => app.quit = true,
+        KeyCode::Char('q') => app.quit = true,
+        // Undo one narrowing at a time, and leave only when there is nothing
+        // left to undo. Escape should not discard a filter and quit at once.
+        KeyCode::Esc => {
+            if !app.clear_one() {
+                app.quit = true;
+            }
+        }
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => app.quit = true,
+        KeyCode::Char('/') => app.start_typing(),
+        KeyCode::Char('!') => app.cycle_facet(),
         KeyCode::Down | KeyCode::Char('j') => app.move_by(1),
         KeyCode::Up | KeyCode::Char('k') => app.move_by(-1),
         KeyCode::PageDown | KeyCode::Char('f') => app.move_by(page),
@@ -99,12 +128,82 @@ mod tests {
     }
 
     #[test]
-    fn q_and_escape_both_leave() {
+    fn q_and_escape_both_leave_when_there_is_nothing_to_undo() {
         for code in [KeyCode::Char('q'), KeyCode::Esc] {
             let mut app = machine();
             press(&mut app, code);
             assert!(app.quit);
         }
+    }
+
+    #[test]
+    fn escape_undoes_one_narrowing_at_a_time_before_it_leaves() {
+        let mut app = machine();
+        press(&mut app, KeyCode::Char('!'));
+        press(&mut app, KeyCode::Char('/'));
+        press(&mut app, KeyCode::Char('a'));
+
+        press(&mut app, KeyCode::Esc);
+        assert!(!app.is_typing(), "first escape stops typing");
+        assert!(!app.quit);
+
+        press(&mut app, KeyCode::Esc);
+        assert!(app.filter.query.is_empty(), "then clears the query");
+        assert!(!app.quit);
+
+        press(&mut app, KeyCode::Esc);
+        assert!(app.filter.facet.is_none(), "then the facet");
+        assert!(!app.quit);
+
+        press(&mut app, KeyCode::Esc);
+        assert!(app.quit, "and only then leaves");
+    }
+
+    #[test]
+    fn while_typing_letters_are_the_query_rather_than_commands() {
+        let mut app = machine();
+        press(&mut app, KeyCode::Char('/'));
+        for c in "sq".chars() {
+            press(&mut app, KeyCode::Char(c));
+        }
+        assert_eq!(
+            app.filter.query, "sq",
+            "s must not sort and q must not quit"
+        );
+        assert!(!app.quit);
+    }
+
+    #[test]
+    fn backspace_takes_the_query_back_a_character() {
+        let mut app = machine();
+        press(&mut app, KeyCode::Char('/'));
+        press(&mut app, KeyCode::Char('a'));
+        press(&mut app, KeyCode::Char('b'));
+        press(&mut app, KeyCode::Backspace);
+        assert_eq!(app.filter.query, "a");
+    }
+
+    #[test]
+    fn the_arrows_still_move_while_typing() {
+        let mut app = machine();
+        press(&mut app, KeyCode::Char('/'));
+        press(&mut app, KeyCode::Down);
+        assert!(app.is_typing(), "moving must not end the query");
+    }
+
+    #[test]
+    fn bang_cycles_the_facets_and_comes_back_to_none() {
+        use crate::view::row::Facet;
+        let mut app = machine();
+        for _ in 0..Facet::ALL.len() {
+            press(&mut app, KeyCode::Char('!'));
+        }
+        assert!(app.filter.facet.is_some());
+        press(&mut app, KeyCode::Char('!'));
+        assert!(
+            app.filter.facet.is_none(),
+            "the last step is back to everything"
+        );
     }
 
     #[test]

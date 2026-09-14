@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use crate::model::graph::Graph;
-use crate::view::row::{Axis, Row, Sort, build};
+use crate::view::row::{Axis, Facet, Filter, Row, Sort, build};
 
 /// The interface's whole state.
 pub struct App {
@@ -37,6 +37,23 @@ pub struct App {
     pub sort: Sort,
     /// Whether that order is inverted.
     pub reversed: bool,
+    /// What the list is narrowed to.
+    pub filter: Filter,
+    /// What keystrokes currently mean.
+    pub mode: Mode,
+}
+
+/// What a keypress does right now.
+///
+/// While typing, letters go into the query rather than being commands — `s`
+/// means the letter s, not sort.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Mode {
+    /// Keys are commands.
+    #[default]
+    Browsing,
+    /// Keys are a query.
+    Typing,
 }
 
 impl App {
@@ -50,6 +67,7 @@ impl App {
             Axis::default(),
             Sort::default(),
             false,
+            &Filter::default(),
             now,
         );
         Self {
@@ -66,6 +84,8 @@ impl App {
             now,
             sort: Sort::default(),
             reversed: false,
+            filter: Filter::default(),
+            mode: Mode::default(),
         }
     }
 
@@ -81,6 +101,7 @@ impl App {
             self.axis,
             self.sort,
             self.reversed,
+            &self.filter,
             self.now,
         );
         self.selected = anchor
@@ -113,6 +134,90 @@ impl App {
     pub fn reverse_sort(&mut self) {
         self.reversed = !self.reversed;
         self.rebuild();
+    }
+
+    /// Turn a facet on, or off if it is already on.
+    ///
+    /// The cursor goes to the top: after narrowing to thirty rows from four
+    /// hundred, wherever it was is not where you are looking.
+    pub fn toggle_facet(&mut self, facet: Facet) {
+        self.filter.facet = if self.filter.facet == Some(facet) {
+            None
+        } else {
+            Some(facet)
+        };
+        self.selected = 0;
+        self.offset = 0;
+        self.rebuild();
+    }
+
+    /// Cycle through the facets from the keyboard, ending back at none.
+    pub fn cycle_facet(&mut self) {
+        let next = match self.filter.facet {
+            None => Some(Facet::ALL[0]),
+            Some(current) => {
+                let index = Facet::ALL.iter().position(|f| *f == current).unwrap_or(0);
+                Facet::ALL.get(index + 1).copied()
+            }
+        };
+        self.filter.facet = next;
+        self.selected = 0;
+        self.offset = 0;
+        self.rebuild();
+    }
+
+    /// Start typing a query.
+    pub fn start_typing(&mut self) {
+        self.mode = Mode::Typing;
+    }
+
+    /// Stop typing, keeping whatever was typed.
+    pub fn stop_typing(&mut self) {
+        self.mode = Mode::Browsing;
+    }
+
+    /// Whether keystrokes are going into the query.
+    #[must_use]
+    pub fn is_typing(&self) -> bool {
+        self.mode == Mode::Typing
+    }
+
+    /// Add a character to the query.
+    pub fn push_query(&mut self, c: char) {
+        self.filter.query.push(c);
+        self.selected = 0;
+        self.offset = 0;
+        self.rebuild();
+    }
+
+    /// Remove the last character of the query.
+    pub fn pop_query(&mut self) {
+        self.filter.query.pop();
+        self.selected = 0;
+        self.offset = 0;
+        self.rebuild();
+    }
+
+    /// Undo one narrowing, narrowest first.
+    ///
+    /// Returns whether anything was cleared, so `esc` can fall through to
+    /// leaving once there is nothing left to undo.
+    pub fn clear_one(&mut self) -> bool {
+        if self.mode == Mode::Typing {
+            self.mode = Mode::Browsing;
+            return true;
+        }
+        if !self.filter.query.is_empty() {
+            self.filter.query.clear();
+        } else if self.filter.facet.is_some() {
+            self.filter.facet = None;
+        } else {
+            return false;
+        }
+        self.selected = 0;
+        self.offset = 0;
+        self.rebuild();
+        true
     }
 
     /// Move the cursor, stopping at both ends rather than wrapping.

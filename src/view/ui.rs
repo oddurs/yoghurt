@@ -33,7 +33,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     draw_strip(frame, app, strip);
     draw_rule(frame, app, rule);
     draw_body(frame, app, body);
-    draw_footer(frame, footer);
+    draw_footer(frame, app, footer);
 }
 
 /// Identity, totals, and how fresh this is.
@@ -99,7 +99,10 @@ fn draw_strip(frame: &mut Frame, app: &App, area: Rect) {
     let mut used = 1;
 
     for (label, count) in app.facets() {
-        let text = format!("{count} {label}   ");
+        // The active facet is marked by shape as well as colour, so the strip
+        // still says which one is on under `mono`.
+        let active = app.filter.facet.is_some_and(|facet| facet.label() == label);
+        let text = format!("{count} {label}{}   ", if active { " ◂" } else { "" });
         let width = text.chars().count();
         // Drop a facet whole rather than cutting it in half. "2 bro" is worse
         // than not saying it.
@@ -107,14 +110,20 @@ fn draw_strip(frame: &mut Frame, app: &App, area: Rect) {
             break;
         }
         used += width;
+
+        let style = Style::new()
+            .fg(facet_colour(label))
+            .add_modifier(Modifier::BOLD);
         spans.push(Span::styled(
             count.to_string(),
-            Style::new()
-                .fg(facet_colour(label))
-                .add_modifier(Modifier::BOLD),
+            if active {
+                style.add_modifier(Modifier::REVERSED)
+            } else {
+                style
+            },
         ));
         spans.push(Span::styled(
-            format!(" {label}   "),
+            format!(" {label}{}   ", if active { " ◂" } else { "" }),
             Style::new().fg(Color::DarkGray),
         ));
     }
@@ -137,7 +146,17 @@ fn draw_rule(frame: &mut Frame, app: &App, area: Rect) {
     // default differs per column and nobody should have to remember that.
     let descending = app.reversed ^ app.sort.descends_by_default();
     let arrow = if descending { "↓" } else { "↑" };
-    let title = format!("─ by {} · {}{arrow} ", app.axis.label(), app.sort.label());
+    let narrowing = app.filter.describe();
+    let title = if narrowing.is_empty() {
+        format!("─ by {} · {}{arrow} ", app.axis.label(), app.sort.label())
+    } else {
+        // What is being hidden matters more than how what is left is ordered.
+        format!(
+            "─ {narrowing}{} · by {} ",
+            if app.is_typing() { "▌" } else { "" },
+            app.axis.label()
+        )
+    };
     let rule = format!(
         "{title}{}",
         "─".repeat(usize::from(area.width).saturating_sub(title.chars().count()))
@@ -168,9 +187,12 @@ const SHOW_VERSION: u16 = 56;
 fn draw_body(frame: &mut Frame, app: &App, area: Rect) {
     if app.rows.is_empty() {
         let message = if app.graph.packages().count() == 0 {
-            "  Nothing found. No package manager on this machine reported anything."
+            "  Nothing found. No package manager on this machine reported anything.".to_owned()
         } else {
-            "  Nothing matches."
+            format!(
+                "  Nothing matches {}. Press esc to widen.",
+                app.filter.describe()
+            )
         };
         frame.render_widget(
             Paragraph::new(Line::from(Span::styled(
@@ -327,16 +349,27 @@ fn trim(text: &str, width: usize) -> String {
 }
 
 /// The keys that do something right now.
-fn draw_footer(frame: &mut Frame, area: Rect) {
-    let keys = [
-        ("↑↓", "move"),
-        ("space", "fold"),
-        ("g", "group"),
-        ("q", "quit"),
-    ];
+fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
+    // The footer says what the keys do *now*, so typing shows a different set.
+    let keys: &[(&str, &str)] = if app.is_typing() {
+        &[("type", "filter"), ("↵", "keep"), ("esc", "clear")]
+    } else {
+        &[
+            ("↑↓", "move"),
+            ("space", "fold"),
+            ("g", "group"),
+            ("s", "sort"),
+            ("/", "find"),
+            ("!", "facet"),
+            ("q", "quit"),
+        ]
+    };
     let mut spans = vec![Span::raw(" ")];
     for (key, what) in keys {
-        spans.push(Span::styled(key, Style::new().add_modifier(Modifier::BOLD)));
+        spans.push(Span::styled(
+            *key,
+            Style::new().add_modifier(Modifier::BOLD),
+        ));
         spans.push(Span::styled(
             format!(" {what}  "),
             Style::new().fg(Color::DarkGray),
@@ -445,6 +478,7 @@ mod tests {
             path: None,
             installed: None,
             outdated: true,
+            provides: Vec::new(),
         };
         assert_eq!(
             glyph(&item),
@@ -453,6 +487,19 @@ mod tests {
         );
         item.outdated = false;
         assert_eq!(glyph(&item), "●");
+    }
+
+    #[test]
+    fn the_active_facet_is_marked_by_shape_not_only_by_colour() {
+        use crate::view::row::Facet;
+        let mut app = machine();
+        assert!(!render(&app, 90, 4)[1].contains('◂'));
+        app.toggle_facet(Facet::Wanted);
+        assert!(
+            render(&app, 90, 4)[1].contains("wanted ◂"),
+            "under mono, colour says nothing: {:?}",
+            render(&app, 90, 4)[1]
+        );
     }
 
     #[test]

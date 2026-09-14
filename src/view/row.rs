@@ -153,6 +153,114 @@ impl Axis {
     }
 }
 
+/// A narrowing of the list.
+///
+/// A facet and a typed query are the same kind of thing — both say "show me
+/// fewer rows" — so they are one value that composes, rather than two that have
+/// to be reconciled every time either changes.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Filter {
+    /// A named subset, chosen from the strip.
+    pub facet: Option<Facet>,
+    /// What the person typed.
+    pub query: String,
+}
+
+impl Filter {
+    /// Whether this narrows anything at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.facet.is_none() && self.query.is_empty()
+    }
+
+    /// Whether an item survives it.
+    #[must_use]
+    pub fn matches(&self, item: &Item) -> bool {
+        self.facet.is_none_or(|facet| facet.matches(item)) && self.matches_query(item)
+    }
+
+    /// Match on name, source, and the commands it provides.
+    ///
+    /// Case-insensitive and substring rather than prefix: people remember the
+    /// middle of a name as often as the start.
+    fn matches_query(&self, item: &Item) -> bool {
+        if self.query.is_empty() {
+            return true;
+        }
+        let needle = self.query.to_lowercase();
+        item.name.to_lowercase().contains(&needle)
+            || item.source.to_lowercase().contains(&needle)
+            || item
+                .provides
+                .iter()
+                .any(|c| c.to_lowercase().contains(&needle))
+    }
+
+    /// How the narrowing is described in the rule.
+    #[must_use]
+    pub fn describe(&self) -> String {
+        match (self.facet, self.query.as_str()) {
+            (None, "") => String::new(),
+            (Some(facet), "") => facet.label().to_owned(),
+            (None, query) => format!("/{query}"),
+            (Some(facet), query) => format!("{} /{query}", facet.label()),
+        }
+    }
+}
+
+/// One of the named subsets in the status strip.
+///
+/// Every count on the strip is one of these, so the summary is the navigation:
+/// the commonest question a person has costs one keystroke or one click.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Facet {
+    /// Things you asked for.
+    Wanted,
+    /// Things that came with something else.
+    PulledIn,
+    /// Things with a newer version published.
+    Outdated,
+    /// Things nothing you installed needs.
+    Unexplained,
+    /// Things that are not there.
+    Broken,
+}
+
+impl Facet {
+    /// Every facet, in the order the strip shows them.
+    pub const ALL: [Self; 5] = [
+        Self::Wanted,
+        Self::PulledIn,
+        Self::Outdated,
+        Self::Unexplained,
+        Self::Broken,
+    ];
+
+    /// How it is named on the strip.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Wanted => "wanted",
+            Self::PulledIn => "pulled in",
+            Self::Outdated => "outdated",
+            Self::Unexplained => "unexplained",
+            Self::Broken => "broken",
+        }
+    }
+
+    /// Whether an item belongs to it.
+    #[must_use]
+    pub fn matches(self, item: &Item) -> bool {
+        match self {
+            Self::Wanted => item.state == State::Fine,
+            Self::PulledIn => item.state == State::PulledIn,
+            Self::Outdated => item.outdated,
+            Self::Unexplained => item.state == State::Unexplained,
+            Self::Broken => item.state == State::Broken,
+        }
+    }
+}
+
 /// What the list is ordered by, within each group.
 ///
 /// Sorting applies inside groups rather than across them, so grouping and
@@ -277,6 +385,9 @@ pub struct Item {
     /// something you asked for can be out of date without ceasing to be
     /// something you asked for.
     pub outdated: bool,
+    /// The command names it puts on the path, so a filter can find a package by
+    /// what you actually type.
+    pub provides: Vec<String>,
 }
 
 /// A line of the list: either a group heading or something in it.
@@ -322,10 +433,12 @@ pub fn build(
     axis: Axis,
     sort: Sort,
     reversed: bool,
+    filter: &Filter,
     now: SystemTime,
 ) -> Vec<Row> {
     let mut items: Vec<(u8, String, Item)> = items(graph)
         .into_iter()
+        .filter(|item| filter.matches(item))
         .map(|item| {
             let (order, key) = axis.bucket(&item, now);
             (order, key, item)
@@ -399,6 +512,12 @@ fn items(graph: &Graph) -> Vec<Item> {
                 path,
                 installed: package.installed_at,
                 outdated: package.outdated,
+                provides: package
+                    .owns
+                    .iter()
+                    .filter_map(|path| graph.artifact(path))
+                    .flat_map(|artifact| artifact.provides.iter().cloned())
+                    .collect(),
             }
         })
         .collect();
@@ -425,6 +544,7 @@ fn items(graph: &Graph) -> Vec<Item> {
                 path: Some(path.to_owned()),
                 installed: None,
                 outdated: false,
+                provides: artifact.provides.iter().cloned().collect(),
             }),
     );
     items
@@ -439,7 +559,7 @@ fn is_system(path: &std::path::Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{Axis, Row, Sort, State, build};
+    use super::{Axis, Facet, Filter, Row, Sort, State, build};
     use crate::model::fact::{Fact, PackageId};
     use crate::model::graph::Graph;
     use std::collections::BTreeSet;
@@ -511,6 +631,7 @@ mod tests {
                 Axis::Source,
                 Sort::Name,
                 false,
+                &Filter::default(),
                 epoch()
             )),
             vec![
@@ -533,6 +654,7 @@ mod tests {
                 Axis::Source,
                 Sort::Name,
                 false,
+                &Filter::default(),
                 epoch()
             )),
             vec!["[homebrew 2]", "[unclaimed 1]", "Xcode.app"]
@@ -548,6 +670,7 @@ mod tests {
             Axis::Source,
             Sort::Name,
             false,
+            &Filter::default(),
             epoch(),
         );
         let Row::Group { bytes, count, .. } = &rows[0] else {
@@ -564,6 +687,7 @@ mod tests {
             Axis::Source,
             Sort::Name,
             false,
+            &Filter::default(),
             epoch(),
         );
         let state = |name: &str| {
@@ -587,6 +711,7 @@ mod tests {
             Axis::Source,
             Sort::Name,
             false,
+            &Filter::default(),
             epoch(),
         );
         assert!(
@@ -618,6 +743,7 @@ mod tests {
             Axis::Role,
             Sort::Name,
             false,
+            &Filter::default(),
             epoch(),
         );
         assert_eq!(
@@ -641,6 +767,7 @@ mod tests {
             Axis::Size,
             Sort::Name,
             false,
+            &Filter::default(),
             epoch(),
         );
         let headings: Vec<String> = names(&rows)
@@ -659,6 +786,7 @@ mod tests {
             Axis::Age,
             Sort::Name,
             false,
+            &Filter::default(),
             epoch(),
         );
         let headings: Vec<String> = names(&rows)
@@ -680,6 +808,7 @@ mod tests {
             Axis::Health,
             Sort::Name,
             false,
+            &Filter::default(),
             epoch(),
         );
         let headings: Vec<String> = names(&rows)
@@ -706,6 +835,7 @@ mod tests {
             Axis::Source,
             Sort::Size,
             false,
+            &Filter::default(),
             epoch(),
         );
         assert_eq!(
@@ -739,6 +869,7 @@ mod tests {
             Axis::Source,
             Sort::Name,
             false,
+            &Filter::default(),
             epoch(),
         );
         let backward = build(
@@ -747,6 +878,7 @@ mod tests {
             Axis::Source,
             Sort::Name,
             true,
+            &Filter::default(),
             epoch(),
         );
         assert_eq!(
@@ -780,6 +912,7 @@ mod tests {
             Axis::Role,
             Sort::Size,
             false,
+            &Filter::default(),
             epoch(),
         );
         let items: Vec<String> = names(&rows)
@@ -790,6 +923,127 @@ mod tests {
             items.first().map(String::as_str),
             Some("ripgrep"),
             "the only measured one"
+        );
+    }
+
+    #[test]
+    fn a_facet_narrows_the_list_to_one_kind_of_thing() {
+        let filter = Filter {
+            facet: Some(Facet::PulledIn),
+            query: String::new(),
+        };
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            false,
+            &filter,
+            epoch(),
+        );
+        assert_eq!(names(&rows), vec!["[homebrew 1]", "pcre2"]);
+    }
+
+    #[test]
+    fn a_query_matches_the_middle_of_a_name_not_just_the_start() {
+        let filter = Filter {
+            facet: None,
+            query: "grep".to_owned(),
+        };
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            false,
+            &filter,
+            epoch(),
+        );
+        assert_eq!(names(&rows), vec!["[homebrew 1]", "ripgrep"]);
+    }
+
+    #[test]
+    fn a_facet_and_a_query_compose_rather_than_replacing_each_other() {
+        let filter = Filter {
+            facet: Some(Facet::Wanted),
+            query: "grep".to_owned(),
+        };
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            false,
+            &filter,
+            epoch(),
+        );
+        assert_eq!(names(&rows), vec!["[homebrew 1]", "ripgrep"]);
+
+        let missing = Filter {
+            facet: Some(Facet::PulledIn),
+            query: "grep".to_owned(),
+        };
+        let none = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            false,
+            &missing,
+            epoch(),
+        );
+        assert!(
+            none.is_empty(),
+            "ripgrep is wanted, so it is not also pulled in"
+        );
+    }
+
+    #[test]
+    fn a_query_is_case_insensitive() {
+        for query in ["RIPGREP", "RipGrep", "ripgrep"] {
+            let filter = Filter {
+                facet: None,
+                query: query.to_owned(),
+            };
+            let rows = build(
+                &machine(),
+                &BTreeSet::new(),
+                Axis::Source,
+                Sort::Name,
+                false,
+                &filter,
+                epoch(),
+            );
+            assert_eq!(names(&rows), vec!["[homebrew 1]", "ripgrep"], "{query}");
+        }
+    }
+
+    #[test]
+    fn the_narrowing_describes_itself_for_the_rule() {
+        assert_eq!(Filter::default().describe(), "");
+        assert_eq!(
+            Filter {
+                facet: Some(Facet::Broken),
+                query: String::new()
+            }
+            .describe(),
+            "broken"
+        );
+        assert_eq!(
+            Filter {
+                facet: None,
+                query: "rg".to_owned()
+            }
+            .describe(),
+            "/rg"
+        );
+        assert_eq!(
+            Filter {
+                facet: Some(Facet::Wanted),
+                query: "rg".to_owned()
+            }
+            .describe(),
+            "wanted /rg"
         );
     }
 
@@ -810,6 +1064,7 @@ mod tests {
             Axis::Source,
             Sort::Name,
             false,
+            &Filter::default(),
             epoch(),
         );
         let unclaimed: Vec<_> = names(&rows);

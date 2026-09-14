@@ -2,7 +2,7 @@
 id: 20
 title: Make every facet in the strip a filter
 type: feature
-status: backlog
+status: done
 milestone: v0.1
 depends_on:
 - 13
