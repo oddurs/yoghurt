@@ -2,12 +2,13 @@
 id: 15
 title: Open and restore the terminal without leaving it broken
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 7
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p0
 effort: m
 area: runtime
@@ -32,3 +33,7 @@ the panic second. Handle SIGINT, SIGTERM and SIGHUP the same way.
 - [ ] SIGTERM and SIGHUP restore the terminal
 - [ ] A resize during a scan does not corrupt the screen
 - [ ] Mouse reporting is switched off on exit, so the outer shell keeps selection
+
+## 2026-09-14
+
+signal-hook was already in the tree via crossterm, so declaring it costs no new supply chain. Needed because unsafe_code=forbid rules out calling libc::signal directly. Handlers set a flag rather than acting: the only safe thing to do in a handler is set a flag, and the event loop is where the terminal can be given back in order.

@@ -4,14 +4,13 @@
 
 ## v0.1 — See it
 
-`######····` 56% · 10 of 18 done · due 2026-10-20
+`#######···` 61% · 11 of 18 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ### backlog
 
 - [ ] `0014` Render the interface into a buffer a test can read <sup>chore · p0 · testing</sup>
-- [ ] `0015` Open and restore the terminal without leaving it broken <sup>feature · p0 · runtime</sup>
 - [ ] `0016` Draw the chrome: header, status strip, footer <sup>feature · p0 · chrome</sup>
 - [ ] `0017` Show the inventory as a grouped list <sup>feature · p0 · list</sup>
 - [ ] `0018` Answer "why is this here" in the detail pane <sup>feature · p0 · detail</sup>
@@ -28,6 +27,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0011` Read Homebrew from the Cellar, enriched by the JSON <sup>feature · p0 · source</sup>
 - [x] `0012` Assemble the facts into one graph <sup>feature · p0 · graph</sup>
 - [x] `0013` Answer the four structural questions <sup>feature · p0 · graph</sup>
+- [x] `0015` Open and restore the terminal without leaving it broken <sup>feature · p0 · runtime</sup>
 - [x] `0021` Print a table when stdout is not a terminal <sup>feature · p1 · cli</sup>
 - [x] `0068` Correct the claims the Homebrew spike invalidated <sup>chore · p0 · docs</sup>
 - [x] `0069` Organize the crate into model, sources and interface <sup>chore · p1 · runtime</sup>

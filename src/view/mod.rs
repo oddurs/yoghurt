@@ -4,3 +4,4 @@
 //! has to decide what a package *is*, it belongs in [`crate::model`] instead.
 
 pub mod plain;
+pub mod term;
