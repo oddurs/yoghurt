@@ -8,9 +8,10 @@ use std::io::{self, IsTerminal as _, Write as _};
 use std::process::ExitCode;
 
 use yoghurt::model::fact::Source as _;
+use yoghurt::source::taxonomy::{self, Subject};
 use yoghurt::view::row::{Axis, Facet, Sort};
 use yoghurt::view::{app::App, plain, run, testkit};
-use yoghurt::{Applications, Cargo, Graph, Homebrew, Rustup, Walk};
+use yoghurt::{Applications, Cargo, Config, Graph, Homebrew, Rustup, Walk};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -234,7 +235,34 @@ fn survey() -> Result<Graph, String> {
     for source in sources {
         facts.extend(source.scan().map_err(|e| e.to_string())?);
     }
-    Ok(Graph::from_facts(facts))
+    let graph = Graph::from_facts(facts.clone());
+
+    // Only if somebody switched it on. Nothing above this line touches the
+    // network, and this is the only thing that ever would.
+    let config = Config::load()?;
+    if !config.taxonomy.available() {
+        return Ok(graph);
+    }
+    let subjects: Vec<Subject> = graph
+        .packages()
+        .map(|(id, package)| Subject {
+            id: id.clone(),
+            name: id.name.clone(),
+            describes: package.describes.clone(),
+        })
+        .collect();
+    match taxonomy::classify(&config.taxonomy, &subjects) {
+        Ok(labels) => {
+            facts.extend(labels);
+            Ok(Graph::from_facts(facts))
+        }
+        // A classification that fails is a missing label, never a missing
+        // machine. Fall back to what was observed.
+        Err(error) => {
+            eprintln!("yoghurt: {error}");
+            Ok(graph)
+        }
+    }
 }
 
 #[cfg(test)]

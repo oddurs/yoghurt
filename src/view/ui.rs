@@ -480,6 +480,7 @@ mod tests {
             outdated: true,
             provides: Vec::new(),
             describes: None,
+            labelled: None,
         };
         assert_eq!(
             glyph(&item),

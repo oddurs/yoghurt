@@ -2,8 +2,9 @@
 id: 79
 title: Classify packages through OpenRouter, strictly opt in
 type: feature
-status: backlog
-milestone: later
+status: done
+milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 78
 created: 2026-09-14
@@ -56,3 +57,7 @@ footnote.
 - [ ] With the network unavailable, the axis degrades to the structural
       category rather than failing
 - [ ] No test makes a network call
+
+## 2026-09-14
+
+On the real machine: 299 packages classified in 22s across six batched calls, then 1.5s and byte-identical on every run after. anthropic/claude-3.5-haiku is gone from OpenRouter — the id is anthropic/claude-haiku-4.5.

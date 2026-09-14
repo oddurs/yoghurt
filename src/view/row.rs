@@ -57,65 +57,76 @@ impl State {
     }
 }
 
-/// What the list is grouped by.
+/// Define an enum together with the list of its variants and their names.
 ///
-/// Each answers a different question, and the two that matter most are not the
-/// default: `Role` separates what you chose from what came with it, and `Size`
-/// says where the disk went.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Axis {
-    /// What each manager is responsible for.
-    #[default]
-    Source,
-    /// What you actually chose.
-    Role,
-    /// Where the disk went.
-    Size,
-    /// What you have not touched in a long time.
-    Age,
-    /// What needs attention.
-    Health,
-    /// What a thing actually is.
-    Category,
+/// `Axis::ALL` and `Axis::label` used to be written out separately, and twice a
+/// new variant was added to the enum and to `label` but not to `ALL` — which
+/// made it unreachable from the keyboard while every test still passed, because
+/// a test that iterates `ALL` cannot see what is missing from `ALL`. Declaring
+/// them in one place makes that impossible rather than merely unlikely.
+macro_rules! cycling_enum {
+    (
+        $(#[$enum_meta:meta])*
+        $name:ident { $($(#[$meta:meta])* $variant:ident => $label:literal),+ $(,)? }
+    ) => {
+        $(#[$enum_meta])*
+        pub enum $name {
+            $($(#[$meta])* $variant),+
+        }
+
+        impl $name {
+            /// Every one, in the order they are cycled.
+            pub const ALL: &'static [Self] = &[$(Self::$variant),+];
+
+            /// How it is named where a person can read it.
+            #[must_use]
+            pub fn label(self) -> &'static str {
+                match self { $(Self::$variant => $label),+ }
+            }
+
+            /// The one with this name, if there is one.
+            #[must_use]
+            pub fn from_label(name: &str) -> Option<Self> {
+                Self::ALL.iter().copied().find(|value| value.label() == name)
+            }
+
+            /// The next one round.
+            #[must_use]
+            pub fn next(self) -> Self {
+                let index = Self::ALL.iter().position(|value| *value == self).unwrap_or(0);
+                Self::ALL[(index + 1) % Self::ALL.len()]
+            }
+        }
+    };
+}
+
+cycling_enum! {
+    /// What the list is grouped by.
+    ///
+    /// Each answers a different question, and the two that matter most are not
+    /// the default: `Role` separates what you chose from what came with it, and
+    /// `Size` says where the disk went.
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    Axis {
+        /// What each manager is responsible for.
+        #[default]
+        Source => "source",
+        /// What you actually chose.
+        Role => "role",
+        /// What a thing actually is.
+        Category => "category",
+        /// What a model guessed it is for. Inferred, and marked as such.
+        Taxonomy => "purpose",
+        /// Where the disk went.
+        Size => "size",
+        /// What you have not touched in a long time.
+        Age => "age",
+        /// What needs attention.
+        Health => "health",
+    }
 }
 
 impl Axis {
-    /// Every axis, in the order `g` cycles them.
-    pub const ALL: [Self; 6] = [
-        Self::Source,
-        Self::Role,
-        Self::Category,
-        Self::Size,
-        Self::Age,
-        Self::Health,
-    ];
-
-    /// How it is named in the pane title.
-    #[must_use]
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Source => "source",
-            Self::Role => "role",
-            Self::Size => "size",
-            Self::Age => "age",
-            Self::Health => "health",
-            Self::Category => "category",
-        }
-    }
-
-    /// The axis with this name, if there is one.
-    #[must_use]
-    pub fn from_label(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|axis| axis.label() == name)
-    }
-
-    /// The next axis round.
-    #[must_use]
-    pub fn next(self) -> Self {
-        let index = Self::ALL.iter().position(|a| *a == self).unwrap_or(0);
-        Self::ALL[(index + 1) % Self::ALL.len()]
-    }
-
     /// Which group an item falls in, and where that group sorts.
     ///
     /// Alphabetical is right for sources and wrong for everything else: size
@@ -125,8 +136,7 @@ impl Axis {
         match self {
             Self::Source => (0, item.source.clone()),
             // Role is provenance and nothing else. Being out of date does not
-            // change whether you asked for something, and letting it do so made
-            // the strip say 87 wanted while the list said 65.
+            // change whether you asked for something.
             Self::Role => match item.state {
                 State::Fine => (0, "wanted".to_owned()),
                 State::PulledIn => (1, "pulled in".to_owned()),
@@ -134,6 +144,18 @@ impl Axis {
                 State::Orphan => (3, "unclaimed".to_owned()),
                 State::Broken => (4, "broken".to_owned()),
             },
+            Self::Category => match item.category() {
+                Category::Application => (0, "applications".to_owned()),
+                Category::Tool => (1, "tools".to_owned()),
+                Category::Library => (2, "libraries".to_owned()),
+                Category::Unclaimed => (3, "unclaimed".to_owned()),
+            },
+            // Marked with a tilde wherever it appears: this is a guess, and it
+            // must never be mistaken for something the machine reported.
+            Self::Taxonomy => item.labelled.as_ref().map_or_else(
+                || (1, "~ not classified".to_owned()),
+                |label| (0, format!("~ {label}")),
+            ),
             Self::Size => match item.bytes.unwrap_or(0) {
                 b if b >= 100 << 20 => (0, "over 100M".to_owned()),
                 b if b >= 10 << 20 => (1, "10M to 100M".to_owned()),
@@ -153,12 +175,6 @@ impl Axis {
                     _ => (3, "older".to_owned()),
                 }
             }
-            Self::Category => match item.category() {
-                Category::Application => (0, "applications".to_owned()),
-                Category::Tool => (1, "tools".to_owned()),
-                Category::Library => (2, "libraries".to_owned()),
-                Category::Unclaimed => (3, "unclaimed".to_owned()),
-            },
             Self::Health => match (item.state, item.outdated) {
                 (State::Broken, _) => (0, "broken".to_owned()),
                 (_, true) => (1, "outdated".to_owned()),
@@ -437,6 +453,8 @@ pub struct Item {
     pub provides: Vec<String>,
     /// What it is for, where a source says so.
     pub describes: Option<String>,
+    /// What a model guessed it is for. A guess, not an observation.
+    pub labelled: Option<String>,
 }
 
 impl Item {
@@ -480,7 +498,11 @@ pub enum Row {
         collapsed: bool,
     },
     /// One package or orphan.
-    Item(Item),
+    ///
+    /// Boxed because an `Item` is several times the size of a `Group`, and a
+    /// list of four hundred rows is mostly items with a few headings paying for
+    /// the difference.
+    Item(Box<Item>),
 }
 
 /// Prefixes macOS itself owns.
@@ -543,7 +565,11 @@ pub fn build(
             collapsed: folded,
         });
         if !folded {
-            rows.extend(group.iter().map(|(_, _, item)| Row::Item(item.clone())));
+            rows.extend(
+                group
+                    .iter()
+                    .map(|(_, _, item)| Row::Item(Box::new(item.clone()))),
+            );
         }
         index = end;
     }
@@ -616,6 +642,7 @@ fn items(graph: &Graph) -> Vec<Item> {
                 outdated: package.outdated,
                 provides: commands.get(id).cloned().unwrap_or_default(),
                 describes: package.describes.clone(),
+                labelled: package.labelled.clone(),
             }
         })
         .collect();
@@ -644,6 +671,7 @@ fn items(graph: &Graph) -> Vec<Item> {
                 outdated: false,
                 provides: artifact.provides.iter().cloned().collect(),
                 describes: None,
+                labelled: None,
             }),
     );
     items
@@ -934,11 +962,75 @@ mod tests {
         assert_eq!(axis, Axis::Source, "and it comes back round");
         for expected in Axis::ALL {
             assert!(
-                seen.contains(&expected),
+                seen.contains(expected),
                 "{} is unreachable from g",
                 expected.label()
             );
         }
+    }
+
+    #[test]
+    fn a_new_axis_cannot_be_added_without_being_reachable() {
+        // `cycling_enum!` declares the variants and `ALL` in one place, so this
+        // holds by construction. It is asserted anyway, because the bug it
+        // replaces — a variant in the enum and in `label` but not in `ALL` —
+        // happened twice and was invisible to every test that iterated `ALL`.
+        assert_eq!(Axis::ALL.len(), 7);
+        assert_eq!(Axis::from_label("purpose"), Some(Axis::Taxonomy));
+        for axis in Axis::ALL {
+            assert_eq!(
+                Axis::from_label(axis.label()),
+                Some(*axis),
+                "{}",
+                axis.label()
+            );
+        }
+    }
+
+    #[test]
+    fn an_inferred_label_is_marked_as_a_guess_wherever_it_appears() {
+        let graph = Graph::from_facts([
+            Fact::Package {
+                id: PackageId::new("homebrew", "ffmpeg"),
+                version: None,
+            },
+            Fact::Labelled {
+                package: PackageId::new("homebrew", "ffmpeg"),
+                label: "media".to_owned(),
+            },
+        ]);
+        let rows = build(
+            &graph,
+            &BTreeSet::new(),
+            Axis::Taxonomy,
+            Sort::Name,
+            false,
+            &Filter::default(),
+            epoch(),
+        );
+        assert_eq!(
+            names(&rows).first().map(String::as_str),
+            Some("[~ media 1]"),
+            "an observation and a guess must never look the same"
+        );
+    }
+
+    #[test]
+    fn something_no_model_has_seen_says_so_rather_than_being_left_out() {
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Taxonomy,
+            Sort::Name,
+            false,
+            &Filter::default(),
+            epoch(),
+        );
+        assert!(
+            names(&rows)
+                .iter()
+                .any(|n| n.starts_with("[~ not classified"))
+        );
     }
 
     #[test]
@@ -1229,6 +1321,7 @@ mod tests {
             outdated: false,
             provides: provides.iter().map(|c| (*c).to_owned()).collect(),
             describes: None,
+            labelled: None,
         }
     }
 

@@ -60,6 +60,30 @@ cd yoghurt
 cargo build --release   # binary at target/release/yoghurt
 ```
 
+## Optional: what things are for
+
+yoghurt can ask a model to sort packages into categories, which is the one thing
+it cannot work out by looking. It is **off** unless you switch it on, because
+the rest of the tool never touches the network.
+
+`~/.config/yoghurt/config.toml`:
+
+```toml
+[taxonomy]
+enabled = true
+# The key is never kept here. Point at a file that already holds one.
+api_key_file = "~/.config/namesync/env"
+api_key_env = "OPENROUTER_API_KEY"
+model = "anthropic/claude-haiku-4.5"
+```
+
+Only names and descriptions are sent — never paths, never versions, never the
+shape of your home directory. Answers are cached in
+`~/.cache/yoghurt/taxonomy.json`, so it asks once per package ever and two runs
+of the same machine group identically. Labels appear with a `~` in front of
+them, because they are a guess and everything else yoghurt shows is an
+observation.
+
 ## Development
 
 One command sets everything up:

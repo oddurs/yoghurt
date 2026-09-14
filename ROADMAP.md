@@ -44,7 +44,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`###·······` 25% · 4 of 16 done · due 2026-12-01
+`###·······` 29% · 5 of 17 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
@@ -69,6 +69,7 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [x] `0033` Group the list by role, size and age <sup>feature · p1 · list</sup>
 - [x] `0073` Claim macOS applications so they stop reading as orphans <sup>feature · p0 · source</sup>
 - [x] `0078` Read what Homebrew already says a package is for <sup>feature · p1 · source</sup>
+- [x] `0079` Classify packages through OpenRouter, strictly opt in <sup>feature · p3 · source</sup>
 
 ## v0.3 — Contention
 
@@ -121,7 +122,7 @@ No new surface. The version somebody who is not Oddur can install in one
 
 ## later — Someday
 
-`··········` 0% · 0 of 7 done
+`··········` 0% · 0 of 6 done
 
 Good ideas that are not on the path to v1.0. Things go here instead of being
 
@@ -133,5 +134,4 @@ Good ideas that are not on the path to v1.0. Things go here instead of being
 - [ ] `0065` Notice changes without being asked <sup>feature · p3 · scan</sup>
 - [ ] `0066` Wear a theme the terminal already has <sup>feature · p3 · theme</sup>
 - [ ] `0067` Compare two machines <sup>feature · p3 · cli</sup>
-- [ ] `0079` Classify packages through OpenRouter, strictly opt in <sup>feature · p3 · source</sup>
 
