@@ -3,4 +3,4 @@
 ─ by source · name↑ ──────────────────────────────────────────────────────────
  ▾ homebrew                                                          1  6.2M  
   ● ripgrep                                                   15.2.0    6.2M  
- ↑↓ move  space fold  g group  q quit                                         
+ ↑↓ move  space fold  g group  s sort  / find  ! facet  q quit                
