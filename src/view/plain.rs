@@ -107,7 +107,7 @@ fn is_system(path: &Path) -> bool {
 /// The cast loses precision above 2^53 bytes, which is eight petabytes in a
 /// keg. It is not a real machine.
 #[allow(clippy::cast_precision_loss)]
-fn size(bytes: Option<u64>) -> String {
+pub(crate) fn size(bytes: Option<u64>) -> String {
     let Some(bytes) = bytes.filter(|b| *b > 0) else {
         return "-".to_owned();
     };
@@ -123,6 +123,16 @@ fn size(bytes: Option<u64>) -> String {
         format!("{value:.1}{}", UNITS[unit])
     } else {
         format!("{value:.0}{}", UNITS[unit])
+    }
+}
+
+/// Bytes for a header, where zero is a number rather than a dash.
+#[must_use]
+pub fn human(bytes: u64) -> String {
+    if bytes == 0 {
+        "0B".to_owned()
+    } else {
+        size(Some(bytes))
     }
 }
 

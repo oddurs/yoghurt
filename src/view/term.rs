@@ -106,6 +106,11 @@ impl Drop for Screen {
 /// Every step is attempted even if an earlier one failed: leaving the screen in
 /// raw mode because the cursor would not come back is the worse outcome.
 pub fn restore() {
+    // Nothing to give back if nothing was taken, and writing escapes into a
+    // pipe or a test harness is worse than doing nothing.
+    if !io::IsTerminal::is_terminal(&io::stdout()) {
+        return;
+    }
     let mut out = io::stdout();
     let _ = out.execute(DisableMouseCapture);
     let _ = out.execute(LeaveAlternateScreen);

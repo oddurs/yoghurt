@@ -2,12 +2,12 @@
 id: 14
 title: Render the interface into a buffer a test can read
 type: chore
-status: backlog
+status: done
 milestone: v0.1
 depends_on:
 - 7
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p0
 effort: m
 area: testing
@@ -35,3 +35,7 @@ without a terminal at all.
 - [ ] At least one test renders a full frame at 100x30 and compares it to a fixture
 - [ ] Runs in CI on a machine with no Homebrew and no TTY
 - [ ] Adding a view later does not require changing the harness
+
+## 2026-09-14
+
+Built together with 0016 in one branch. A harness that renders nothing cannot be tested, and its own criterion asks for a test that renders a full frame — so it needs a view to exist. The chrome is the smallest real one.

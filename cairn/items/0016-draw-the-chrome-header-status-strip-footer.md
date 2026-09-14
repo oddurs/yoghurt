@@ -2,13 +2,13 @@
 id: 16
 title: 'Draw the chrome: header, status strip, footer'
 type: feature
-status: backlog
+status: done
 milestone: v0.1
 depends_on:
 - 7
 - 14
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p0
 effort: m
 area: chrome
