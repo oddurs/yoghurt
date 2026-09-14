@@ -56,3 +56,7 @@ sometimes an app.
 - [ ] `brew` failing or returning unparseable JSON is reported, not swallowed
 - [ ] Tested against a fixture Cellar and a captured JSON file — no network, no brew —
       and the fixture contains a cask, a multi-keg formula and an untrusted-tap keg
+
+## 2026-09-14
+
+The walk resolves symlinks with canonicalize(), so ownership matching needs brew's keg paths to be canonical too. If $(brew --prefix) or any ancestor is itself a symlink, keg paths as brew reports them will not prefix-match the walk's resolved paths and every linked binary becomes an orphan. Canonicalize the Cellar root once in the adapter.

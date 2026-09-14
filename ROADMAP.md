@@ -4,14 +4,13 @@
 
 ## v0.1 — See it
 
-`###·······` 24% · 4 of 17 done · due 2026-10-20
+`###·······` 29% · 5 of 17 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ### backlog
 
 - [ ] `0007` Take the terminal dependency <sup>chore · p0 · runtime</sup>
-- [ ] `0010` Walk PATH and the application directories for ground truth <sup>feature · p0 · scan</sup>
 - [ ] `0011` Read Homebrew from the Cellar, enriched by the JSON <sup>feature · p0 · source</sup>
 - [ ] `0013` Answer the four structural questions <sup>feature · p0 · graph</sup>
 - [ ] `0014` Render the interface into a buffer a test can read <sup>chore · p0 · testing</sup>
@@ -28,6 +27,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 - [x] `0008` What does Homebrew's JSON actually give us? <sup>spike · p0 · source</sup>
 - [x] `0009` Define the fact vocabulary every source emits <sup>feature · p0 · source</sup>
+- [x] `0010` Walk PATH and the application directories for ground truth <sup>feature · p0 · scan</sup>
 - [x] `0012` Assemble the facts into one graph <sup>feature · p0 · graph</sup>
 - [x] `0068` Correct the claims the Homebrew spike invalidated <sup>chore · p0 · docs</sup>
 
