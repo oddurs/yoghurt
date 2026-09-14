@@ -7,7 +7,7 @@ milestone: v0.2
 depends_on:
 - 10
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p0
 effort: m
 area: source
@@ -42,3 +42,7 @@ that needs a subprocess per file is too slow for 592 of them.
 Timebox: one day. The answer is a ranked list of methods with hit rates and costs.
 
 ## Answer
+
+## 2026-09-14
+
+Measured on this machine, ahead of the spike: 44 apps in /Applications — 10 carry Contents/_MASReceipt (Mac App Store), 32 are Developer ID signed with the vendor named in the codesign authority (Figma Inc., Running with Crayons Ltd, Mitchell Hashimoto), 1 is signed by Apple, and exactly 1 is anonymous. pkgutil --pkgs additionally lists 105 installer receipts, each with an install date and file list. So 43 of 44 unclaimed apps are identifiable and 'unclaimed' is yoghurt's ignorance rather than the machine's. kMDItemWhereFroms was absent on every app tested and is not worth relying on.

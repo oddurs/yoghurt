@@ -4,7 +4,7 @@
 
 ## v0.1 — See it
 
-`########··` 77% · 17 of 22 done · due 2026-10-20
+`########··` 79% · 19 of 24 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
@@ -35,10 +35,12 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0042` Sort by any column <sup>feature · p1 · list</sup>
 - [x] `0068` Correct the claims the Homebrew spike invalidated <sup>chore · p0 · docs</sup>
 - [x] `0069` Organize the crate into model, sources and interface <sup>chore · p1 · runtime</sup>
+- [x] `0071` Filtering never matches a command a package provides <sup>bug · p1 · filter</sup>
+- [x] `0072` Group the list by what a thing is <sup>feature · p1 · list</sup>
 
 ## v0.2 — All of it
 
-`#·········` 7% · 1 of 14 done · due 2026-12-01
+`#·········` 7% · 1 of 15 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
@@ -57,6 +59,7 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [ ] `0035` Adding a source is one file <sup>docs · p2 · docs</sup>
 - [ ] `0036` Test every adapter against a fixture tree <sup>chore · p0 · testing</sup>
 - [ ] `0058` Report a scan that only partly worked <sup>feature · p0 · scan</sup>
+- [ ] `0073` Claim macOS applications so they stop reading as orphans <sup>feature · p0 · source</sup>
 
 ### done
 

@@ -6,7 +6,7 @@
 //! indexing. Collapsing a group rebuilds the vector rather than teaching the
 //! renderer about depth.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
@@ -75,13 +75,16 @@ pub enum Axis {
     Age,
     /// What needs attention.
     Health,
+    /// What a thing actually is.
+    Category,
 }
 
 impl Axis {
     /// Every axis, in the order `g` cycles them.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Source,
         Self::Role,
+        Self::Category,
         Self::Size,
         Self::Age,
         Self::Health,
@@ -96,6 +99,7 @@ impl Axis {
             Self::Size => "size",
             Self::Age => "age",
             Self::Health => "health",
+            Self::Category => "category",
         }
     }
 
@@ -143,6 +147,12 @@ impl Axis {
                     _ => (3, "older".to_owned()),
                 }
             }
+            Self::Category => match item.category() {
+                Category::Application => (0, "applications".to_owned()),
+                Category::Tool => (1, "tools".to_owned()),
+                Category::Library => (2, "libraries".to_owned()),
+                Category::Unclaimed => (3, "unclaimed".to_owned()),
+            },
             Self::Health => match (item.state, item.outdated) {
                 (State::Broken, _) => (0, "broken".to_owned()),
                 (_, true) => (1, "outdated".to_owned()),
@@ -362,6 +372,24 @@ impl Sort {
     }
 }
 
+/// What a thing is, as opposed to where it came from.
+///
+/// Derived from the graph — what a package owns and what it puts on the path —
+/// rather than from a list somebody has to keep up to date. A package manager
+/// this program has never heard of is categorised correctly as soon as its
+/// adapter lands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Category {
+    /// An application bundle, whoever installed it.
+    Application,
+    /// Something you can run: it puts at least one command on your path.
+    Tool,
+    /// Something other things link against, and you never invoke.
+    Library,
+    /// On disk, and nothing claims it.
+    Unclaimed,
+}
+
 /// One thing in the list.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Item {
@@ -388,6 +416,32 @@ pub struct Item {
     /// The command names it puts on the path, so a filter can find a package by
     /// what you actually type.
     pub provides: Vec<String>,
+}
+
+impl Item {
+    /// What this is.
+    ///
+    /// Order matters: a cask that installs an app is an application even though
+    /// it also puts a command on the path, because the app is the thing you
+    /// think of it as.
+    #[must_use]
+    pub fn category(&self) -> Category {
+        if self
+            .path
+            .as_ref()
+            .is_some_and(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("app")))
+        {
+            return Category::Application;
+        }
+        if self.package.is_none() {
+            return Category::Unclaimed;
+        }
+        if self.provides.is_empty() {
+            Category::Library
+        } else {
+            Category::Tool
+        }
+    }
 }
 
 /// A line of the list: either a group heading or something in it.
@@ -475,8 +529,35 @@ pub fn build(
     rows
 }
 
+/// Which commands each package is responsible for.
+///
+/// Attribution runs from the command to the owner, not from the package
+/// outward. A `Provides` fact sits on the path the walk found — the link at
+/// `/opt/homebrew/bin/rg` — while the package owns the keg behind it, so asking
+/// a package what it owns and reading `provides` off that finds nothing.
+fn commands_by_package(graph: &Graph) -> BTreeMap<PackageId, Vec<String>> {
+    let mut by_package: BTreeMap<PackageId, Vec<String>> = BTreeMap::new();
+    for (path, artifact) in graph.artifacts() {
+        if artifact.provides.is_empty() {
+            continue;
+        }
+        for owner in graph.owners_of(path) {
+            by_package
+                .entry(owner.clone())
+                .or_default()
+                .extend(artifact.provides.iter().cloned());
+        }
+    }
+    for commands in by_package.values_mut() {
+        commands.sort_unstable();
+        commands.dedup();
+    }
+    by_package
+}
+
 /// Every package, plus everything on disk nobody claims.
 fn items(graph: &Graph) -> Vec<Item> {
+    let commands = commands_by_package(graph);
     let mut items: Vec<Item> = graph
         .packages()
         .map(|(id, package)| {
@@ -512,12 +593,7 @@ fn items(graph: &Graph) -> Vec<Item> {
                 path,
                 installed: package.installed_at,
                 outdated: package.outdated,
-                provides: package
-                    .owns
-                    .iter()
-                    .filter_map(|path| graph.artifact(path))
-                    .flat_map(|artifact| artifact.provides.iter().cloned())
-                    .collect(),
+                provides: commands.get(id).cloned().unwrap_or_default(),
             }
         })
         .collect();
@@ -559,7 +635,7 @@ fn is_system(path: &std::path::Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{Axis, Facet, Filter, Row, Sort, State, build};
+    use super::{Axis, Category, Facet, Filter, Item, Row, Sort, State, build};
     use crate::model::fact::{Fact, PackageId};
     use crate::model::graph::Graph;
     use std::collections::BTreeSet;
@@ -819,12 +895,47 @@ mod tests {
     }
 
     #[test]
-    fn the_axes_cycle_round() {
+    fn every_axis_is_reachable_by_cycling() {
+        // Cycling ALL.len() times returns to the start whether or not an axis
+        // is missing from ALL, so counting is not enough: this collects what is
+        // actually reached. Without it, `Category` was unreachable from `g` and
+        // every test still passed.
         let mut axis = Axis::Source;
+        let mut seen = vec![axis];
         for _ in 0..Axis::ALL.len() {
             axis = axis.next();
+            if !seen.contains(&axis) {
+                seen.push(axis);
+            }
         }
-        assert_eq!(axis, Axis::Source);
+        assert_eq!(axis, Axis::Source, "and it comes back round");
+        for expected in Axis::ALL {
+            assert!(
+                seen.contains(&expected),
+                "{} is unreachable from g",
+                expected.label()
+            );
+        }
+    }
+
+    #[test]
+    fn every_sort_column_is_reachable_by_cycling() {
+        let mut sort = Sort::Name;
+        let mut seen = vec![sort];
+        for _ in 0..Sort::ALL.len() {
+            sort = sort.next();
+            if !seen.contains(&sort) {
+                seen.push(sort);
+            }
+        }
+        assert_eq!(sort, Sort::Name);
+        for expected in Sort::ALL {
+            assert!(
+                seen.contains(&expected),
+                "{} is unreachable from s",
+                expected.label()
+            );
+        }
     }
 
     #[test]
@@ -1045,6 +1156,81 @@ mod tests {
             .describe(),
             "wanted /rg"
         );
+    }
+
+    fn item(name: &str, provides: &[&str], path: &str, owned: bool) -> Item {
+        Item {
+            name: name.to_owned(),
+            source: "homebrew".to_owned(),
+            version: None,
+            state: State::Fine,
+            bytes: None,
+            package: owned.then(|| PackageId::new("homebrew", name)),
+            path: (!path.is_empty()).then(|| PathBuf::from(path)),
+            installed: None,
+            outdated: false,
+            provides: provides.iter().map(|c| (*c).to_owned()).collect(),
+        }
+    }
+
+    #[test]
+    fn something_you_can_run_is_a_tool_and_something_you_cannot_is_a_library() {
+        assert_eq!(
+            item("ripgrep", &["rg"], "/k/ripgrep", true).category(),
+            Category::Tool
+        );
+        assert_eq!(
+            item("pcre2", &[], "/k/pcre2", true).category(),
+            Category::Library
+        );
+    }
+
+    #[test]
+    fn an_app_bundle_is_an_application_whoever_installed_it() {
+        assert_eq!(
+            item("Ghostty.app", &[], "/Applications/Ghostty.app", true).category(),
+            Category::Application
+        );
+        assert_eq!(
+            item("Xcode.app", &[], "/Applications/Xcode.app", false).category(),
+            Category::Application,
+            "nobody owning it does not stop it being an application"
+        );
+    }
+
+    #[test]
+    fn a_cask_that_installs_an_app_is_an_application_even_though_it_also_provides_a_command() {
+        assert_eq!(
+            item("orbstack", &["orb"], "/Applications/OrbStack.app", true).category(),
+            Category::Application,
+            "the app is the thing you think of it as"
+        );
+    }
+
+    #[test]
+    fn something_nothing_claims_is_unclaimed() {
+        assert_eq!(
+            item("mystery", &["mystery"], "/usr/local/bin/mystery", false).category(),
+            Category::Unclaimed
+        );
+    }
+
+    #[test]
+    fn grouping_by_category_puts_applications_first_and_unclaimed_last() {
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Category,
+            Sort::Name,
+            false,
+            &Filter::default(),
+            epoch(),
+        );
+        let headings: Vec<String> = names(&rows)
+            .into_iter()
+            .filter(|n| n.starts_with('['))
+            .collect();
+        assert_eq!(headings, vec!["[applications 1]", "[libraries 2]"]);
     }
 
     #[test]
