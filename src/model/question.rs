@@ -9,8 +9,8 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::Path;
 
-use crate::fact::PackageId;
-use crate::graph::Graph;
+use crate::model::fact::PackageId;
+use crate::model::graph::Graph;
 
 /// Why a package is on the machine.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -175,8 +175,8 @@ impl Graph {
 #[cfg(test)]
 mod tests {
     use super::Provenance;
-    use crate::fact::{Fact, PackageId};
-    use crate::graph::Graph;
+    use crate::model::fact::{Fact, PackageId};
+    use crate::model::graph::Graph;
     use std::path::{Path, PathBuf};
 
     fn brew(name: &str) -> PackageId {

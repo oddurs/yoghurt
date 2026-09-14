@@ -15,7 +15,7 @@ use std::io;
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 
-use crate::fact::{Fact, ScanError, Source};
+use crate::model::fact::{Fact, ScanError, Source};
 
 /// The ground-truth walk.
 pub struct Walk {
@@ -188,8 +188,8 @@ impl Source for Walk {
 #[cfg(test)]
 mod tests {
     use super::Walk;
-    use crate::fact::{Fact, Source as _};
-    use crate::graph::Graph;
+    use crate::model::fact::{Fact, Source as _};
+    use crate::model::graph::Graph;
     use std::fs;
     use std::os::unix::fs::{PermissionsExt as _, symlink};
     use std::path::PathBuf;
@@ -359,14 +359,14 @@ mod tests {
         let keg = fs::canonicalize(m.path("opt/Cellar/ripgrep/15.2.0")).unwrap();
         let mut facts = walk.scan().unwrap();
         facts.push(Fact::Owns {
-            package: crate::fact::PackageId::new("homebrew", "ripgrep"),
+            package: crate::model::fact::PackageId::new("homebrew", "ripgrep"),
             artifact: keg,
         });
 
         let graph = Graph::from_facts(facts);
         assert_eq!(
             graph.owners_of(&m.path("opt/bin/rg")),
-            vec![&crate::fact::PackageId::new("homebrew", "ripgrep")],
+            vec![&crate::model::fact::PackageId::new("homebrew", "ripgrep")],
             "the thing on PATH is a link, and the keg behind it is what Homebrew owns"
         );
     }
