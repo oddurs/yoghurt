@@ -43,6 +43,8 @@ pub struct Artifact {
     pub bytes: Option<u64>,
     /// The command names it can be invoked by.
     pub provides: BTreeSet<String>,
+    /// Whether it is referred to but not there.
+    pub missing: bool,
 }
 
 /// The assembled machine.
@@ -57,6 +59,9 @@ pub struct Graph {
     /// Reverse of `Package::owns`, so ownership is a lookup rather than a scan.
     /// 0013 asks who owns a path once per artifact on the machine.
     owners: BTreeMap<PathBuf, BTreeSet<PackageId>>,
+    /// Symlink to target, so ownership can follow a link the way the filesystem
+    /// does.
+    resolves: BTreeMap<PathBuf, PathBuf>,
 }
 
 impl Graph {
@@ -112,6 +117,17 @@ impl Graph {
                     if declared_directly {
                         entry.declared.insert(on);
                     }
+                }
+                Fact::Artifact { path } => {
+                    graph.artifacts.entry(path).or_default();
+                }
+                Fact::Resolves { link, target } => {
+                    graph.artifacts.entry(link.clone()).or_default();
+                    graph.artifacts.entry(target.clone()).or_default();
+                    graph.resolves.insert(link, target);
+                }
+                Fact::Missing { artifact } => {
+                    graph.artifacts.entry(artifact).or_default().missing = true;
                 }
                 Fact::Provides { artifact, command } => {
                     graph
@@ -193,10 +209,32 @@ impl Graph {
     /// claiming one path is representable rather than resolved.
     #[must_use]
     pub fn owners_of(&self, path: &Path) -> Vec<&PackageId> {
+        let direct = Self::claim(&self.owners, path);
+        if direct.is_empty() {
+            // Follow the link the way the filesystem would: `/opt/homebrew/bin/rg`
+            // is owned by whoever owns the keg it points into.
+            if let Some(target) = self.resolves.get(path) {
+                return Self::claim(&self.owners, target);
+            }
+        }
+        direct
+    }
+
+    /// The owners claiming the longest prefix of this path.
+    fn claim<'a>(
+        owners: &'a BTreeMap<PathBuf, BTreeSet<PackageId>>,
+        path: &Path,
+    ) -> Vec<&'a PackageId> {
         path.ancestors()
-            .find_map(|ancestor| self.owners.get(ancestor))
-            .map(|owners| owners.iter().collect())
+            .find_map(|ancestor| owners.get(ancestor))
+            .map(|found| found.iter().collect())
             .unwrap_or_default()
+    }
+
+    /// What this path points at, if it is a symlink anything resolved.
+    #[must_use]
+    pub fn target_of(&self, path: &Path) -> Option<&Path> {
+        self.resolves.get(path).map(PathBuf::as_path)
     }
 
     /// Everything this package needs, following dependencies all the way down.

@@ -2,12 +2,13 @@
 id: 10
 title: Walk PATH and the application directories for ground truth
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 9
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p0
 effort: m
 area: scan
@@ -39,3 +40,7 @@ missing one.
 - [ ] An unreadable directory is skipped with a warning, never a panic
 - [ ] Runs against a fixture tree in tests — never against the developer's machine
 - [ ] Completes in under 100ms for 600 PATH entries
+
+## 2026-09-14
+
+Measured on this machine: 17ms for the whole walk, 2996 artifacts and 2177 distinct commands, plus 3ms to assemble the graph. The criterion assumed 600 PATH entries; the real number is 2177 commands, because 592 was only /opt/homebrew/bin. First cut took 159ms — canonicalize() was being called on every executable rather than only on symlinks, which is 9x of the cost for nothing.

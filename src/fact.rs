@@ -91,6 +91,38 @@ pub enum Fact {
         declared_directly: bool,
     },
 
+    /// This path is on disk.
+    ///
+    /// Most artifacts arrive implicitly, named by whoever owns or provides
+    /// them. An application bundle is owned by nobody and provides no command,
+    /// so without this it would not exist — which is exactly backwards, since
+    /// unowned things are the most interesting on the machine.
+    Artifact {
+        /// The path.
+        path: PathBuf,
+    },
+
+    /// This path is a symlink to that one.
+    ///
+    /// The shell finds `/opt/homebrew/bin/rg`; Homebrew owns the keg the link
+    /// points into. Ownership follows the link, while `$PATH` position belongs
+    /// to the link itself, so both paths have to survive.
+    Resolves {
+        /// The path as found.
+        link: PathBuf,
+        /// What it points at, fully resolved.
+        target: PathBuf,
+    },
+
+    /// This path is referred to but is not there.
+    ///
+    /// A dangling symlink, or a package claiming something that has been
+    /// deleted underneath it.
+    Missing {
+        /// The path that is absent.
+        artifact: PathBuf,
+    },
+
     /// This artifact can be run under this command name.
     ///
     /// Two artifacts providing the same name is a contest; which one wins is

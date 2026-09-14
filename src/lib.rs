@@ -10,9 +10,11 @@
 
 pub mod fact;
 pub mod graph;
+pub mod walk;
 
 pub use fact::{Fact, PackageId, ScanError, Source};
 pub use graph::Graph;
+pub use walk::Walk;
 
 use std::fs;
 use std::path::{Path, PathBuf};
