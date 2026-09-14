@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use crate::model::graph::Graph;
-use crate::view::row::{Axis, Row, build};
+use crate::view::row::{Axis, Row, Sort, build};
 
 /// The interface's whole state.
 pub struct App {
@@ -33,6 +33,10 @@ pub struct App {
     pub axis: Axis,
     /// What counts as now, for grouping by age. Injected so tests are stable.
     pub now: std::time::SystemTime,
+    /// What the list is ordered by, within each group.
+    pub sort: Sort,
+    /// Whether that order is inverted.
+    pub reversed: bool,
 }
 
 impl App {
@@ -40,7 +44,14 @@ impl App {
     #[must_use]
     pub fn new(graph: Graph) -> Self {
         let now = std::time::SystemTime::now();
-        let rows = build(&graph, &BTreeSet::new(), Axis::default(), now);
+        let rows = build(
+            &graph,
+            &BTreeSet::new(),
+            Axis::default(),
+            Sort::default(),
+            false,
+            now,
+        );
         Self {
             graph,
             host: hostname(),
@@ -53,6 +64,8 @@ impl App {
             offset: 0,
             axis: Axis::default(),
             now,
+            sort: Sort::default(),
+            reversed: false,
         }
     }
 
@@ -62,7 +75,14 @@ impl App {
     /// a different package each time would make the list unusable.
     pub fn rebuild(&mut self) {
         let anchor = self.rows.get(self.selected).cloned();
-        self.rows = build(&self.graph, &self.collapsed, self.axis, self.now);
+        self.rows = build(
+            &self.graph,
+            &self.collapsed,
+            self.axis,
+            self.sort,
+            self.reversed,
+            self.now,
+        );
         self.selected = anchor
             .and_then(|was| self.rows.iter().position(|row| same_thing(row, &was)))
             .unwrap_or(self.selected)
@@ -76,6 +96,22 @@ impl App {
     pub fn cycle_axis(&mut self) {
         self.axis = self.axis.next();
         self.collapsed.clear();
+        self.rebuild();
+    }
+
+    /// Order by the next column round.
+    ///
+    /// Reversal is dropped, because a column's default direction is the one
+    /// that reads best and carrying an inversion across columns surprises.
+    pub fn cycle_sort(&mut self) {
+        self.sort = self.sort.next();
+        self.reversed = false;
+        self.rebuild();
+    }
+
+    /// Turn the current order upside down.
+    pub fn reverse_sort(&mut self) {
+        self.reversed = !self.reversed;
         self.rebuild();
     }
 

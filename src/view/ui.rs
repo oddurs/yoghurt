@@ -133,7 +133,11 @@ fn facet_colour(label: &str) -> Color {
 }
 
 fn draw_rule(frame: &mut Frame, app: &App, area: Rect) {
-    let title = format!("─ by {} ", app.axis.label());
+    // Descending by default, flipped by `S`. The arrow says which, because the
+    // default differs per column and nobody should have to remember that.
+    let descending = app.reversed ^ app.sort.descends_by_default();
+    let arrow = if descending { "↓" } else { "↑" };
+    let title = format!("─ by {} · {}{arrow} ", app.axis.label(), app.sort.label());
     let rule = format!(
         "{title}{}",
         "─".repeat(usize::from(area.width).saturating_sub(title.chars().count()))
@@ -264,15 +268,34 @@ fn item_line(item: &Item, width: u16, show_source: bool) -> Vec<Span<'_>> {
 
     vec![
         Span::raw("  "),
-        Span::styled(
-            item.state.glyph(),
-            Style::new().fg(state_colour(item.state)),
-        ),
+        Span::styled(glyph(item), Style::new().fg(glyph_colour(item))),
         Span::raw(" "),
         Span::raw(name),
         Span::raw(" ".repeat(gap)),
         Span::styled(right, Style::new().fg(Color::DarkGray)),
     ]
+}
+
+/// The glyph a row wears.
+///
+/// Being out of date is the more urgent thing to say, so it wins over the
+/// provenance glyph — but only for the glyph. The row still belongs to whatever
+/// it belonged to.
+fn glyph(item: &Item) -> &'static str {
+    if item.outdated {
+        "↑"
+    } else {
+        item.state.glyph()
+    }
+}
+
+/// The colour that goes with it.
+fn glyph_colour(item: &Item) -> Color {
+    if item.outdated {
+        Color::Yellow
+    } else {
+        state_colour(item.state)
+    }
 }
 
 /// One hue per state, matching the strip above it.
@@ -406,6 +429,30 @@ mod tests {
             frame[1]
         );
         assert!(frame[1].starts_with(" 1 wanted"), "{:?}", frame[1]);
+    }
+
+    #[test]
+    fn an_outdated_row_wears_the_arrow_rather_than_its_provenance_glyph() {
+        use super::glyph;
+        use crate::view::row::{Item, State};
+        let mut item = Item {
+            name: "pandoc".to_owned(),
+            source: "homebrew".to_owned(),
+            version: None,
+            state: State::Fine,
+            bytes: None,
+            package: None,
+            path: None,
+            installed: None,
+            outdated: true,
+        };
+        assert_eq!(
+            glyph(&item),
+            "↑",
+            "being stale is the more urgent thing to say"
+        );
+        item.outdated = false;
+        assert_eq!(glyph(&item), "●");
     }
 
     #[test]

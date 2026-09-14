@@ -1,6 +1,6 @@
  yoghurt  mba-oddur                                          scanned just now 
  1 wanted   0 pulled in   0 outdated   0 unexplained   0 broken               
-─ by source ──────────────────────────────────────────────────────────────────
+─ by source · name↑ ──────────────────────────────────────────────────────────
  ▾ homebrew                                                          1  6.2M  
   ● ripgrep                                                   15.2.0    6.2M  
  ↑↓ move  space fold  g group  q quit                                         

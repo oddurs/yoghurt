@@ -3,12 +3,12 @@ id: 20
 title: Make every facet in the strip a filter
 type: feature
 status: backlog
-milestone: v0.2
+milestone: v0.1
 depends_on:
 - 13
 - 16
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p1
 effort: m
 area: chrome
