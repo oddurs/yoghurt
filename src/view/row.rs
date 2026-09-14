@@ -153,6 +153,107 @@ impl Axis {
     }
 }
 
+/// What the list is ordered by, within each group.
+///
+/// Sorting applies inside groups rather than across them, so grouping and
+/// sorting compose instead of fighting: "the biggest thing in each source" is
+/// one question, not two.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Sort {
+    /// Alphabetical, ignoring case.
+    #[default]
+    Name,
+    /// Largest first.
+    Size,
+    /// Newest first.
+    Age,
+    /// Grouped by what is wrong with it.
+    State,
+    /// Version string, which is not a number and is not pretended to be one.
+    Version,
+}
+
+impl Sort {
+    /// Every column, in the order `s` cycles them.
+    pub const ALL: [Self; 5] = [
+        Self::Name,
+        Self::Size,
+        Self::Age,
+        Self::State,
+        Self::Version,
+    ];
+
+    /// How it is named in the rule.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::Size => "size",
+            Self::Age => "age",
+            Self::State => "state",
+            Self::Version => "version",
+        }
+    }
+
+    /// The next column round.
+    #[must_use]
+    pub fn next(self) -> Self {
+        let index = Self::ALL.iter().position(|s| *s == self).unwrap_or(0);
+        Self::ALL[(index + 1) % Self::ALL.len()]
+    }
+
+    /// Whether this column reads best largest-or-newest first.
+    ///
+    /// Nobody asks for the smallest thing on their disk.
+    #[must_use]
+    pub fn descends_by_default(self) -> bool {
+        matches!(self, Self::Size | Self::Age)
+    }
+
+    /// Compare two items on this column, in the direction asked for.
+    ///
+    /// Direction is handled here rather than by reversing the result, because
+    /// an item with nothing to compare — no size, no date — must sort last
+    /// either way. A hole should never outrank something real just because the
+    /// order was inverted.
+    fn compare(self, a: &Item, b: &Item, descending: bool) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        let by_name = || a.name.to_lowercase().cmp(&b.name.to_lowercase());
+        let dir = |ordering: Ordering| {
+            if descending {
+                ordering.reverse()
+            } else {
+                ordering
+            }
+        };
+
+        match self {
+            Self::Name => dir(by_name()),
+            Self::Size => match (a.bytes, b.bytes) {
+                (Some(x), Some(y)) => dir(x.cmp(&y)).then_with(by_name),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => by_name(),
+            },
+            Self::Age => match (a.installed, b.installed) {
+                (Some(x), Some(y)) => dir(x.cmp(&y)).then_with(by_name),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => by_name(),
+            },
+            Self::State => {
+                dir((a.state, !a.outdated).cmp(&(b.state, !b.outdated))).then_with(by_name)
+            }
+            Self::Version => match (a.version.as_deref(), b.version.as_deref()) {
+                (Some(x), Some(y)) => dir(x.cmp(y)).then_with(by_name),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => by_name(),
+            },
+        }
+    }
+}
+
 /// One thing in the list.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Item {
@@ -215,7 +316,14 @@ const SYSTEM_PREFIXES: &[&str] = &[
 ///
 /// `now` is passed rather than read, so grouping by age is testable.
 #[must_use]
-pub fn build(graph: &Graph, collapsed: &BTreeSet<String>, axis: Axis, now: SystemTime) -> Vec<Row> {
+pub fn build(
+    graph: &Graph,
+    collapsed: &BTreeSet<String>,
+    axis: Axis,
+    sort: Sort,
+    reversed: bool,
+    now: SystemTime,
+) -> Vec<Row> {
     let mut items: Vec<(u8, String, Item)> = items(graph)
         .into_iter()
         .map(|item| {
@@ -223,10 +331,13 @@ pub fn build(graph: &Graph, collapsed: &BTreeSet<String>, axis: Axis, now: Syste
             (order, key, item)
         })
         .collect();
+    let descending = reversed ^ sort.descends_by_default();
     items.sort_by(|a, b| {
+        // The group comes first whatever the sort: reversing a column must not
+        // shuffle the groups themselves.
         (a.0, &a.1)
             .cmp(&(b.0, &b.1))
-            .then_with(|| a.2.name.to_lowercase().cmp(&b.2.name.to_lowercase()))
+            .then_with(|| sort.compare(&a.2, &b.2, descending))
     });
 
     let mut rows = Vec::new();
@@ -328,7 +439,7 @@ fn is_system(path: &std::path::Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{Axis, Row, State, build};
+    use super::{Axis, Row, Sort, State, build};
     use crate::model::fact::{Fact, PackageId};
     use crate::model::graph::Graph;
     use std::collections::BTreeSet;
@@ -394,7 +505,14 @@ mod tests {
     #[test]
     fn rows_are_grouped_by_source_with_a_heading_each() {
         assert_eq!(
-            names(&build(&machine(), &BTreeSet::new(), Axis::Source, epoch())),
+            names(&build(
+                &machine(),
+                &BTreeSet::new(),
+                Axis::Source,
+                Sort::Name,
+                false,
+                epoch()
+            )),
             vec![
                 "[homebrew 2]",
                 "pcre2",
@@ -409,7 +527,14 @@ mod tests {
     fn a_collapsed_group_keeps_its_heading_and_loses_its_items() {
         let collapsed = ["homebrew".to_owned()].into_iter().collect();
         assert_eq!(
-            names(&build(&machine(), &collapsed, Axis::Source, epoch())),
+            names(&build(
+                &machine(),
+                &collapsed,
+                Axis::Source,
+                Sort::Name,
+                false,
+                epoch()
+            )),
             vec!["[homebrew 2]", "[unclaimed 1]", "Xcode.app"]
         );
     }
@@ -417,7 +542,14 @@ mod tests {
     #[test]
     fn a_group_heading_totals_what_is_under_it_even_when_folded() {
         let collapsed = ["homebrew".to_owned()].into_iter().collect();
-        let rows = build(&machine(), &collapsed, Axis::Source, epoch());
+        let rows = build(
+            &machine(),
+            &collapsed,
+            Axis::Source,
+            Sort::Name,
+            false,
+            epoch(),
+        );
         let Row::Group { bytes, count, .. } = &rows[0] else {
             panic!("expected a heading");
         };
@@ -426,7 +558,14 @@ mod tests {
 
     #[test]
     fn state_follows_from_the_graph_rather_than_from_a_flag() {
-        let rows = build(&machine(), &BTreeSet::new(), Axis::Source, epoch());
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            false,
+            epoch(),
+        );
         let state = |name: &str| {
             rows.iter()
                 .find_map(|row| match row {
@@ -442,7 +581,14 @@ mod tests {
 
     #[test]
     fn system_binaries_stay_out_of_the_list() {
-        let rows = build(&machine(), &BTreeSet::new(), Axis::Source, epoch());
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            false,
+            epoch(),
+        );
         assert!(
             !names(&rows).contains(&"awk".to_owned()),
             "a thousand of these would bury the rest"
@@ -466,7 +612,14 @@ mod tests {
 
     #[test]
     fn grouping_by_role_separates_what_you_chose_from_what_came_with_it() {
-        let rows = build(&machine(), &BTreeSet::new(), Axis::Role, epoch());
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Role,
+            Sort::Name,
+            false,
+            epoch(),
+        );
         assert_eq!(
             names(&rows),
             vec![
@@ -482,7 +635,14 @@ mod tests {
 
     #[test]
     fn size_buckets_are_ordered_largest_first_not_alphabetically() {
-        let rows = build(&machine(), &BTreeSet::new(), Axis::Size, epoch());
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Size,
+            Sort::Name,
+            false,
+            epoch(),
+        );
         let headings: Vec<String> = names(&rows)
             .into_iter()
             .filter(|n| n.starts_with('['))
@@ -493,7 +653,14 @@ mod tests {
     #[test]
     fn age_buckets_are_ordered_newest_first() {
         assert_eq!(Axis::Age.label(), "age");
-        let rows = build(&machine(), &BTreeSet::new(), Axis::Age, epoch());
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Age,
+            Sort::Name,
+            false,
+            epoch(),
+        );
         let headings: Vec<String> = names(&rows)
             .into_iter()
             .filter(|n| n.starts_with('['))
@@ -507,7 +674,14 @@ mod tests {
 
     #[test]
     fn health_puts_what_needs_attention_first() {
-        let rows = build(&machine(), &BTreeSet::new(), Axis::Health, epoch());
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Health,
+            Sort::Name,
+            false,
+            epoch(),
+        );
         let headings: Vec<String> = names(&rows)
             .into_iter()
             .filter(|n| n.starts_with('['))
@@ -525,8 +699,119 @@ mod tests {
     }
 
     #[test]
+    fn sorting_happens_inside_groups_not_across_them() {
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Size,
+            false,
+            epoch(),
+        );
+        assert_eq!(
+            names(&rows),
+            vec![
+                "[homebrew 2]",
+                "ripgrep",
+                "pcre2",
+                "[unclaimed 1]",
+                "Xcode.app"
+            ],
+            "ripgrep is the bigger of the two, and the groups keep their order"
+        );
+    }
+
+    #[test]
+    fn size_sorts_largest_first_without_being_asked() {
+        assert!(
+            Sort::Size.descends_by_default(),
+            "nobody wants the smallest thing on their disk"
+        );
+        assert!(Sort::Age.descends_by_default());
+        assert!(!Sort::Name.descends_by_default());
+    }
+
+    #[test]
+    fn reversing_turns_the_order_round_but_leaves_the_groups_alone() {
+        let forward = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            false,
+            epoch(),
+        );
+        let backward = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            true,
+            epoch(),
+        );
+        assert_eq!(
+            names(&forward),
+            vec![
+                "[homebrew 2]",
+                "pcre2",
+                "ripgrep",
+                "[unclaimed 1]",
+                "Xcode.app"
+            ]
+        );
+        assert_eq!(
+            names(&backward),
+            vec![
+                "[homebrew 2]",
+                "ripgrep",
+                "pcre2",
+                "[unclaimed 1]",
+                "Xcode.app"
+            ],
+            "the items turn round; the groups do not"
+        );
+    }
+
+    #[test]
+    fn an_unmeasured_size_never_outranks_a_real_one() {
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Role,
+            Sort::Size,
+            false,
+            epoch(),
+        );
+        let items: Vec<String> = names(&rows)
+            .into_iter()
+            .filter(|n| !n.starts_with('['))
+            .collect();
+        assert_eq!(
+            items.first().map(String::as_str),
+            Some("ripgrep"),
+            "the only measured one"
+        );
+    }
+
+    #[test]
+    fn the_sort_columns_cycle_round() {
+        let mut sort = Sort::Name;
+        for _ in 0..Sort::ALL.len() {
+            sort = sort.next();
+        }
+        assert_eq!(sort, Sort::Name);
+    }
+
+    #[test]
     fn names_sort_without_regard_to_case() {
-        let rows = build(&machine(), &BTreeSet::new(), Axis::Source, epoch());
+        let rows = build(
+            &machine(),
+            &BTreeSet::new(),
+            Axis::Source,
+            Sort::Name,
+            false,
+            epoch(),
+        );
         let unclaimed: Vec<_> = names(&rows);
         let x = unclaimed
             .iter()

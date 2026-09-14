@@ -3,12 +3,12 @@ id: 41
 title: Filter by typing
 type: feature
 status: backlog
-milestone: v0.3
+milestone: v0.1
 depends_on:
 - 20
 - 40
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p1
 effort: m
 area: filter

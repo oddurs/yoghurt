@@ -4,7 +4,7 @@
 
 ## v0.1 — See it
 
-`########··` 74% · 14 of 19 done · due 2026-10-20
+`#######···` 68% · 15 of 22 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
@@ -12,8 +12,10 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 - [ ] `0018` Answer "why is this here" in the detail pane <sup>feature · p0 · detail</sup>
 - [ ] `0019` Drive every one of those with the mouse <sup>feature · p0 · mouse</sup>
+- [ ] `0020` Make every facet in the strip a filter <sup>feature · p1 · chrome</sup>
 - [ ] `0022` Say macOS, and make CI say so too <sup>chore · p1 · packaging</sup>
 - [ ] `0023` Rewrite the README around what it shows <sup>docs · p1 · docs</sup>
+- [ ] `0041` Filter by typing <sup>feature · p1 · filter</sup>
 - [ ] `0070` The commit-msg hook rejects the word regenerated <sup>bug · p2 · packaging</sup>
 
 ### done
@@ -30,18 +32,18 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0016` Draw the chrome: header, status strip, footer <sup>feature · p0 · chrome</sup>
 - [x] `0017` Show the inventory as a grouped list <sup>feature · p0 · list</sup>
 - [x] `0021` Print a table when stdout is not a terminal <sup>feature · p1 · cli</sup>
+- [x] `0042` Sort by any column <sup>feature · p1 · list</sup>
 - [x] `0068` Correct the claims the Homebrew spike invalidated <sup>chore · p0 · docs</sup>
 - [x] `0069` Organize the crate into model, sources and interface <sup>chore · p1 · runtime</sup>
 
 ## v0.2 — All of it
 
-`#·········` 7% · 1 of 15 done · due 2026-12-01
+`#·········` 7% · 1 of 14 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
 ### backlog
 
-- [ ] `0020` Make every facet in the strip a filter <sup>feature · p1 · chrome</sup>
 - [ ] `0024` How do you identify a binary nobody claims? <sup>spike · p0 · source</sup>
 - [ ] `0025` Is shadowing common enough to deserve a view? <sup>spike · p0 · path</sup>
 - [ ] `0026` Read cargo and rustup <sup>feature · p0 · source</sup>
@@ -62,7 +64,7 @@ Every package manager on the machine, not just Homebrew — and it opens
 
 ## v0.3 — Contention
 
-`··········` 0% · 0 of 9 done · due 2027-01-12
+`··········` 0% · 0 of 7 done · due 2027-01-12
 
 The Path view: which of the 592 binaries on your PATH actually wins when you
 
@@ -72,8 +74,6 @@ The Path view: which of the 592 binaries on your PATH actually wins when you
 - [ ] `0038` Show only the contested names <sup>feature · p0 · path</sup>
 - [ ] `0039` Show PATH itself as the explanation <sup>feature · p1 · path</sup>
 - [ ] `0040` Move between the views <sup>feature · p0 · chrome</sup>
-- [ ] `0041` Filter by typing <sup>feature · p1 · filter</sup>
-- [ ] `0042` Sort by any column <sup>feature · p1 · list</sup>
 - [ ] `0043` Explain every key and every click without leaving <sup>feature · p1 · chrome</sup>
 - [ ] `0044` Come back to where you were <sup>feature · p2 · config</sup>
 - [ ] `0045` Let the machine's owner define their own facets <sup>feature · p2 · config</sup>
