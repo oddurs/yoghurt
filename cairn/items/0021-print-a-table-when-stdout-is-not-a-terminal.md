@@ -2,12 +2,13 @@
 id: 21
 title: Print a table when stdout is not a terminal
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 13
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p1
 effort: s
 area: cli
@@ -31,3 +32,11 @@ the renderer; `--plain` forces the table even on a tty.
 - [ ] `--plain` forces the table on a tty
 - [ ] The table is one row per package, tab-separated, no ANSI escapes
 - [ ] A closed pipe exits 0 rather than reporting a broken pipe
+
+## 2026-09-14
+
+The first criterion — a tty opens the interface — cannot be met until the interface exists. Moved to 0017 rather than stubbed here, so nothing claims to branch to something that is not built. This item is the table, --plain, and the pipe behaviour.
+
+## 2026-09-14
+
+On the real machine: 491 rows in 2.0s — 88 wanted, 133 pulled in, 3 unexplained, 266 orphans (45 of them applications), 1 broken. Deleted the bootstrap-era survey()/SourceSummary, which the graph supersedes.
