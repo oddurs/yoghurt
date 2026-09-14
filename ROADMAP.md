@@ -4,13 +4,12 @@
 
 ## v0.1 — See it
 
-`#####·····` 47% · 8 of 17 done · due 2026-10-20
+`######····` 53% · 9 of 17 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ### backlog
 
-- [ ] `0007` Take the terminal dependency <sup>chore · p0 · runtime</sup>
 - [ ] `0014` Render the interface into a buffer a test can read <sup>chore · p0 · testing</sup>
 - [ ] `0015` Open and restore the terminal without leaving it broken <sup>feature · p0 · runtime</sup>
 - [ ] `0016` Draw the chrome: header, status strip, footer <sup>feature · p0 · chrome</sup>
@@ -22,6 +21,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ### done
 
+- [x] `0007` Take the terminal dependency <sup>chore · p0 · runtime</sup>
 - [x] `0008` What does Homebrew's JSON actually give us? <sup>spike · p0 · source</sup>
 - [x] `0009` Define the fact vocabulary every source emits <sup>feature · p0 · source</sup>
 - [x] `0010` Walk PATH and the application directories for ground truth <sup>feature · p0 · scan</sup>
