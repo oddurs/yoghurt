@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::fact::{Fact, PackageId};
+use crate::model::fact::{Fact, PackageId};
 
 /// What a package manager records about one package.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -305,7 +305,7 @@ pub struct Counts {
 #[cfg(test)]
 mod tests {
     use super::{Counts, Graph};
-    use crate::fact::{Fact, PackageId};
+    use crate::model::fact::{Fact, PackageId};
     use std::path::{Path, PathBuf};
     use std::time::{Duration, SystemTime};
 

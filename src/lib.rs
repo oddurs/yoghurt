@@ -5,17 +5,18 @@
 //! state the interface shows is a query over it rather than a feature somebody
 //! remembered to build.
 //!
-//! [`fact`] is the boundary that makes that work: an adapter emits [`Fact`]s
-//! and knows nothing else about the program.
+//! Three layers, in the order data moves through them:
+//!
+//! - [`source`] — adapters, each emitting facts and knowing nothing else
+//! - [`model`] — the graph, and the questions that can be asked of it
+//! - [`view`] — projections of the graph, holding no rules of their own
 
-pub mod fact;
-pub mod graph;
-pub mod homebrew;
-pub mod question;
-pub mod walk;
+pub mod model;
+pub mod source;
+pub mod view;
 
-pub use fact::{Fact, PackageId, ScanError, Source};
-pub use graph::Graph;
-pub use homebrew::Homebrew;
-pub use question::{Provenance, Resolution};
-pub use walk::Walk;
+pub use model::fact::{Fact, PackageId, ScanError, Source};
+pub use model::graph::Graph;
+pub use model::question::{Provenance, Resolution};
+pub use source::homebrew::Homebrew;
+pub use source::walk::Walk;

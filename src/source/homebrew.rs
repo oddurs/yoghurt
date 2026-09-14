@@ -13,7 +13,7 @@
 //! fewer facts, never a missing one.
 //!
 //! It emits no `Provides` facts. `/opt/homebrew/bin/rg` is a symlink into the
-//! keg, so the walk in [`crate::walk`] produces that fact once it resolves
+//! keg, so the walk in [`crate::source::walk`] produces that fact once it resolves
 //! symlinks, and the graph joins the two by path prefix.
 
 use std::cell::RefCell;
@@ -25,7 +25,7 @@ use std::time::{Duration, SystemTime};
 
 use serde::Deserialize;
 
-use crate::fact::{Fact, PackageId, ScanError, Source};
+use crate::model::fact::{Fact, PackageId, ScanError, Source};
 
 /// Homebrew, as a source of facts.
 pub struct Homebrew {
@@ -396,8 +396,8 @@ impl Measured {
 #[cfg(test)]
 mod tests {
     use super::Homebrew;
-    use crate::fact::{Fact, PackageId, Source as _};
-    use crate::graph::Graph;
+    use crate::model::fact::{Fact, PackageId, Source as _};
+    use crate::model::graph::Graph;
     use std::fs;
     use std::path::PathBuf;
 

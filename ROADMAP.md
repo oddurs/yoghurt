@@ -4,7 +4,7 @@
 
 ## v0.1 — See it
 
-`######····` 53% · 9 of 17 done · due 2026-10-20
+`######····` 56% · 10 of 18 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
@@ -30,6 +30,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0013` Answer the four structural questions <sup>feature · p0 · graph</sup>
 - [x] `0021` Print a table when stdout is not a terminal <sup>feature · p1 · cli</sup>
 - [x] `0068` Correct the claims the Homebrew spike invalidated <sup>chore · p0 · docs</sup>
+- [x] `0069` Organize the crate into model, sources and interface <sup>chore · p1 · runtime</sup>
 
 ## v0.2 — All of it
 
