@@ -6,25 +6,35 @@ machine's numbers, so the design argues with data rather than with taste.
 ## The machine this was designed against
 
 ```
-brew formulae      169      brew leaves         47
-brew casks          10      /Applications       46
+brew formulae      213      requested           77
+brew casks          11      /Applications       46
 cargo install       22      binaries on PATH   592
 rustup toolchains    7      homebrew on disk   5.6G
 gem                 48      largest keg        1.5G  (llvm@21)
-npm global           3
+npm global           3      multi-keg formulae  44
 ```
 
 Three numbers in there are the whole design.
 
-**169 formulae, 47 leaves.** Seventy-two percent of what is installed, nobody
-asked for. A flat list of 169 rows treats `ripgrep` and `libunistring` as peers,
+**213 formulae, 77 requested.** Sixty-three percent of what is installed, nobody
+asked for. A flat list of 213 rows treats `ripgrep` and `libunistring` as peers,
 and they are not: one is a decision, the other is a consequence. The interface
 has to separate what you *wanted* from what came *with*.
 
-**46 applications, 10 casks.** Thirty-six applications that no package manager
+The measure is Homebrew's own `installed_on_request` — "you typed this" — and
+not `brew leaves`, which asks whether anything currently depends on it. Those
+are different questions, and `leaves` hides a package you chose deliberately
+that something later came to depend on.
+
+**46 applications, 11 casks.** Thirty-five applications that no package manager
 claims. Dragged from a `.dmg`, installed by a vendor updater, left behind by
 something uninstalled years ago. This is the "custom stuff", and it is the
 largest single blind spot on the machine.
+
+It is not only the things no manager installed. Three of those 213 formulae come
+from untrusted taps, and Homebrew's own JSON silently refuses to report them —
+installed, linked, on the `PATH`, and invisible to the tool that installed them.
+A survey built on what each manager says about itself would lose them.
 
 **592 binaries on one PATH entry alone.** The number of *commands* is far larger
 than the number of *packages*, and the mapping between them is invisible. When
