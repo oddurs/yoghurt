@@ -13,6 +13,11 @@ use yoghurt::{Graph, Homebrew, Walk};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// The commit this was built from, stamped by `build.rs`.
+///
+/// Empty when built outside a git checkout.
+const COMMIT: &str = env!("YOGHURT_COMMIT");
+
 const USAGE: &str = "\
 yoghurt — see what is installed on this machine, and where it came from
 
@@ -89,12 +94,21 @@ fn parse(args: &[String]) -> Result<Action, String> {
 fn run(action: Action) -> Result<String, String> {
     match action {
         Action::Help => Ok(USAGE.to_owned()),
-        Action::Version => Ok(format!("yoghurt {VERSION}\n")),
+        Action::Version => Ok(version()),
         Action::Survey => Ok(plain::table(&survey()?)),
         Action::Interface => {
             run::run(App::new(survey()?)).map_err(|e| e.to_string())?;
             Ok(String::new())
         }
+    }
+}
+
+/// The version, and the commit it came from when there is one.
+fn version() -> String {
+    if COMMIT.is_empty() {
+        format!("yoghurt {VERSION}\n")
+    } else {
+        format!("yoghurt {VERSION} ({COMMIT})\n")
     }
 }
 
@@ -117,11 +131,18 @@ mod tests {
     }
 
     #[test]
-    fn reports_the_version() {
-        assert_eq!(
-            run(Action::Version).unwrap(),
-            format!("yoghurt {VERSION}\n")
+    fn reports_the_version_and_the_commit_it_was_built_from() {
+        let reported = run(Action::Version).unwrap();
+        assert!(
+            reported.starts_with(&format!("yoghurt {VERSION}")),
+            "{reported}"
         );
+        if !super::COMMIT.is_empty() {
+            assert!(
+                reported.contains(super::COMMIT),
+                "a binary must be able to say which commit it is: {reported}"
+            );
+        }
     }
 
     #[test]

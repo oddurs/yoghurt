@@ -69,7 +69,9 @@ One command sets everything up:
 ```
 
 That wires the tracked git hooks (`core.hooksPath` → `.githooks`) and runs the
-environment check. From then on, two scripts carry the whole workflow.
+environment check. From then on the binary on your `PATH` keeps itself current:
+merging something that changes the source reinstalls it, and `yoghurt --version`
+reports the commit it was built from so you can always tell. From then on, two scripts carry the whole workflow.
 
 `scripts/task` is the seam every piece of automation talks to — CI and the git
 hooks know only these verbs, so they cannot drift from what you run:
@@ -81,6 +83,7 @@ hooks know only these verbs, so they cannot drift from what you run:
 | `scripts/task lint` | Clippy, warnings denied |
 | `scripts/task test` | Full test suite |
 | `scripts/task build` | Release build |
+| `scripts/task install` | Put it on your PATH from this tree |
 | `scripts/task check` | All of the above |
 
 `scripts/agent` is the workflow — one unit of work, one worktree, one branch,
