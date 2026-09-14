@@ -1,21 +1,26 @@
-//! Survey what is installed on this machine.
+//! See what is installed on this machine, and where it came from.
 //!
-//! Every package manager knows its own inventory and nothing about anyone
-//! else's. A [`Source`] is one of those inventories, reduced to the only two
-//! questions worth asking before you open the full interface: is it here, and
-//! how much is in it.
+//! The model is one graph over three kinds of node — a package a manager
+//! records, an artifact on disk, and a command resolvable on `PATH` — and every
+//! state the interface shows is a query over it rather than a feature somebody
+//! remembered to build.
 //!
-//! Detection is filesystem-only and deliberately so. Shelling out to `brew`,
-//! `npm` and `gem` costs seconds and, for some of them, a network round trip.
-//! Counting directory entries costs milliseconds, which is the difference
-//! between a tool that opens instantly and one you wait for.
+//! [`fact`] is the boundary that makes that work: an adapter emits [`Fact`]s
+//! and knows nothing else about the program.
+
+pub mod fact;
+
+pub use fact::{Fact, PackageId, ScanError, Source};
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// One package manager's inventory, as found on this machine.
+/// One package manager's inventory, reduced to a count.
+///
+/// The summary the bare `yoghurt` table is built from, until the graph replaces
+/// it. Distinct from [`fact::Source`], which is the adapter trait.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Source {
+pub struct SourceSummary {
     /// How this source is named in the interface.
     pub name: &'static str,
     /// The directory the count came from.
@@ -50,7 +55,7 @@ const RUSTUP_SHIMS: &[&str] = &[
 /// present with a count of zero: an empty row invites the question "should I
 /// install that?", which is not what this tool is for.
 #[must_use]
-pub fn survey() -> Vec<Source> {
+pub fn survey() -> Vec<SourceSummary> {
     let home = home();
     let mut found = Vec::new();
 
@@ -95,7 +100,7 @@ pub fn survey() -> Vec<Source> {
                 .map(|scope| entries(&root.join(scope), &|_| true).len())
                 .sum::<usize>();
         if count > 0 {
-            found.push(Source {
+            found.push(SourceSummary {
                 name: "npm global",
                 root,
                 count,
@@ -111,10 +116,15 @@ pub fn survey() -> Vec<Source> {
 }
 
 /// Count `root` and record it when it holds anything.
-fn push(into: &mut Vec<Source>, name: &'static str, root: PathBuf, keep: &dyn Fn(&str) -> bool) {
+fn push(
+    into: &mut Vec<SourceSummary>,
+    name: &'static str,
+    root: PathBuf,
+    keep: &dyn Fn(&str) -> bool,
+) {
     let count = entries(&root, keep).len();
     if count > 0 {
-        into.push(Source { name, root, count });
+        into.push(SourceSummary { name, root, count });
     }
 }
 
@@ -195,7 +205,7 @@ pub fn abbreviate(path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Source, abbreviate, entries, is_bundle, survey};
+    use super::{SourceSummary, abbreviate, entries, is_bundle, survey};
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -253,6 +263,10 @@ mod tests {
 
     #[test]
     fn a_survey_never_reports_an_empty_source() {
-        assert!(survey().iter().all(|Source { count, .. }| *count > 0));
+        assert!(
+            survey()
+                .iter()
+                .all(|SourceSummary { count, .. }| *count > 0)
+        );
     }
 }

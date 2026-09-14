@@ -11,7 +11,6 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 ### backlog
 
 - [ ] `0007` Take the terminal dependency <sup>chore · p0 · runtime</sup>
-- [ ] `0009` Define the fact vocabulary every source emits <sup>feature · p0 · source</sup>
 - [ ] `0010` Walk PATH and the application directories for ground truth <sup>feature · p0 · scan</sup>
 - [ ] `0011` Read Homebrew's inventory in one call <sup>feature · p0 · source</sup>
 - [ ] `0012` Assemble the facts into one graph <sup>feature · p0 · graph</sup>
@@ -25,6 +24,10 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [ ] `0021` Print a table when stdout is not a terminal <sup>feature · p1 · cli</sup>
 - [ ] `0022` Say macOS, and make CI say so too <sup>chore · p1 · packaging</sup>
 - [ ] `0023` Rewrite the README around what it shows <sup>docs · p1 · docs</sup>
+
+### in progress
+
+- [ ] `0009` Define the fact vocabulary every source emits <sup>feature · p0 · source</sup>
 
 ### done
 
