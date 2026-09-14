@@ -188,12 +188,20 @@ cmd_done() {
 	main=$(main_root)
 	[ "$dir" != "$main" ] || die "refusing to remove the primary checkout"
 
+	# Whether the *caller* is standing here has to be settled before this
+	# function cds to $main to do the removal; afterwards $PWD is always $main
+	# and the question can no longer be asked.
+	stranded=no
+	case "$PWD/" in
+	"$dir"/*) stranded=yes ;;
+	esac
+
 	# No child process can change the caller's directory, so say where to go
 	# *before* pulling the ground out — otherwise the next command fails with
 	# "Unable to read current working directory" and the advice is unreadable
 	# because it scrolled past.
-	case "$PWD/" in
-	"$dir"/*)
+	case "$stranded" in
+	yes)
 		printf '\n\033[1m==>\033[0m This shell is inside the worktree about to be removed.\n'
 		printf '    When this finishes, run:\n\n    cd %s\n\n' "$main"
 		;;
@@ -219,8 +227,8 @@ cmd_done() {
 			"$main/.githooks/post-merge" || true
 	fi
 
-	case "$PWD/" in
-	"$dir"/*)
+	case "$stranded" in
+	yes)
 		say "Done. Your shell is still in a directory that no longer exists:"
 		printf '\n    cd %s\n\n' "$main"
 		;;

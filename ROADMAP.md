@@ -4,7 +4,7 @@
 
 ## v0.1 — See it
 
-`#########·` 81% · 22 of 27 done · due 2026-10-20
+`#########·` 82% · 23 of 28 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
@@ -40,6 +40,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0074` Always have a fresh install <sup>chore · p1 · packaging</sup>
 - [x] `0075` Take a screenshot without a terminal <sup>feature · p2 · cli</sup>
 - [x] `0076` scripts/agent done leaves you in a directory that no longer exists <sup>bug · p2 · cli</sup>
+- [x] `0077` The closing message from agent done checks the wrong directory <sup>bug · p2 · cli</sup>
 
 ## v0.2 — All of it
 
