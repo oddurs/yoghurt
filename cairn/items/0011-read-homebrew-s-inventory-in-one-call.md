@@ -37,3 +37,7 @@ with a different source label.
 - [ ] Homebrew not being installed yields no facts and no error
 - [ ] `brew` failing or returning unparseable JSON is reported, not swallowed
 - [ ] Parsed against a captured JSON fixture in tests, with no network and no brew
+
+## 2026-09-13
+
+Spike 0008: brew's JSON carries no size field at all. Sizes come from walking $(brew --prefix)/Cellar/<name>; a cask has no keg, so its size is the artifact it installed. Casks also lack installed_on_request entirely — treat every cask as Wanted — and use token/installed/installed_time rather than the formula field names.
