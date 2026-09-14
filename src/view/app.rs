@@ -4,7 +4,10 @@
 //! has asked to see. No drawing and no terminal, so every question the
 //! interface can answer is answerable in a test without one.
 
+use std::collections::BTreeSet;
+
 use crate::model::graph::Graph;
+use crate::view::row::{Row, build};
 
 /// The interface's whole state.
 pub struct App {
@@ -18,19 +21,102 @@ pub struct App {
     pub scanning: bool,
     /// Set when the person has asked to leave.
     pub quit: bool,
+    /// The list, flattened. Rebuilt whenever what it shows changes.
+    pub rows: Vec<Row>,
+    /// Which group headings are folded shut.
+    pub collapsed: BTreeSet<String>,
+    /// Where the cursor is, as an index into `rows`.
+    pub selected: usize,
+    /// The first visible row.
+    pub offset: usize,
 }
 
 impl App {
     /// Look at this machine.
     #[must_use]
     pub fn new(graph: Graph) -> Self {
+        let rows = build(&graph, &BTreeSet::new());
         Self {
             graph,
             host: hostname(),
             scanned_ago: 0,
             scanning: false,
             quit: false,
+            rows,
+            collapsed: BTreeSet::new(),
+            selected: 0,
+            offset: 0,
         }
+    }
+
+    /// Rebuild the list, keeping the cursor on whatever it was pointing at.
+    ///
+    /// Collapsing a group moves every row after it, and a cursor that jumped to
+    /// a different package each time would make the list unusable.
+    pub fn rebuild(&mut self) {
+        let anchor = self.rows.get(self.selected).cloned();
+        self.rows = build(&self.graph, &self.collapsed);
+        self.selected = anchor
+            .and_then(|was| self.rows.iter().position(|row| same_thing(row, &was)))
+            .unwrap_or(self.selected)
+            .min(self.rows.len().saturating_sub(1));
+    }
+
+    /// Move the cursor, stopping at both ends rather than wrapping.
+    ///
+    /// Wrapping in a list of four hundred means a keypress can take you a long
+    /// way from where you were looking.
+    pub fn move_by(&mut self, delta: isize) {
+        if self.rows.is_empty() {
+            return;
+        }
+        let last = self.rows.len() - 1;
+        self.selected = self.selected.saturating_add_signed(delta).min(last);
+    }
+
+    /// Fold or unfold the group the cursor is on.
+    ///
+    /// On an item, folds the group that contains it, so the cursor does not
+    /// have to travel to the heading first.
+    pub fn toggle_group(&mut self) {
+        let Some(key) = self.group_at(self.selected) else {
+            return;
+        };
+        if !self.collapsed.remove(&key) {
+            self.collapsed.insert(key.clone());
+            // Folding from inside means the heading is where you end up.
+            if let Some(index) = self
+                .rows
+                .iter()
+                .position(|row| matches!(row, Row::Group { key: k, .. } if *k == key))
+            {
+                self.selected = index;
+            }
+        }
+        self.rebuild();
+    }
+
+    /// Which group a row belongs to.
+    fn group_at(&self, index: usize) -> Option<String> {
+        match self.rows.get(index)? {
+            Row::Group { key, .. } => Some(key.clone()),
+            Row::Item(item) => Some(item.source.clone()),
+        }
+    }
+
+    /// Keep the cursor inside a window of `height` rows, moving as little as
+    /// possible — the list should not jump when the cursor is already visible.
+    pub fn scroll_into_view(&mut self, height: usize) {
+        if height == 0 {
+            return;
+        }
+        if self.selected < self.offset {
+            self.offset = self.selected;
+        } else if self.selected >= self.offset + height {
+            self.offset = self.selected + 1 - height;
+        }
+        let max = self.rows.len().saturating_sub(height);
+        self.offset = self.offset.min(max);
     }
 
     /// Totals for the header: packages, sources, bytes.
@@ -95,6 +181,15 @@ impl App {
     }
 }
 
+/// Whether two rows name the same thing, for keeping the cursor still.
+fn same_thing(a: &Row, b: &Row) -> bool {
+    match (a, b) {
+        (Row::Group { key: x, .. }, Row::Group { key: y, .. }) => x == y,
+        (Row::Item(x), Row::Item(y)) => x.name == y.name && x.source == y.source,
+        _ => false,
+    }
+}
+
 /// What the header counts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Totals {
@@ -124,6 +219,7 @@ mod tests {
     use super::{App, Totals};
     use crate::model::fact::{Fact, PackageId};
     use crate::model::graph::Graph;
+    use crate::view::row::Row;
     use std::path::PathBuf;
 
     fn machine() -> App {
@@ -202,6 +298,86 @@ mod tests {
             app.scanned_ago = seconds;
             assert_eq!(app.freshness(), expected);
         }
+    }
+
+    fn names(app: &App) -> Vec<String> {
+        app.rows
+            .iter()
+            .map(|row| match row {
+                Row::Group { key, .. } => format!("[{key}]"),
+                Row::Item(item) => item.name.clone(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_list_is_built_as_soon_as_there_is_a_machine() {
+        assert_eq!(
+            names(&machine()),
+            vec!["[homebrew]", "pcre2", "ripgrep", "[unclaimed]", "ghost"],
+            "the dangling symlink is unclaimed, and that is the point of showing it"
+        );
+    }
+
+    #[test]
+    fn the_cursor_stops_at_both_ends_rather_than_wrapping() {
+        let mut app = machine();
+        app.move_by(-1);
+        assert_eq!(app.selected, 0, "already at the top");
+        app.move_by(500);
+        assert_eq!(
+            app.selected,
+            app.rows.len() - 1,
+            "a keypress must not travel far"
+        );
+    }
+
+    #[test]
+    fn folding_a_group_from_inside_it_leaves_the_cursor_on_the_heading() {
+        let mut app = machine();
+        app.selected = 2; // ripgrep
+        app.toggle_group();
+        assert_eq!(names(&app), vec!["[homebrew]", "[unclaimed]", "ghost"]);
+        assert_eq!(app.selected, 0, "the cursor follows the rows that vanished");
+    }
+
+    #[test]
+    fn unfolding_puts_the_items_back() {
+        let mut app = machine();
+        app.toggle_group();
+        app.toggle_group();
+        assert_eq!(
+            names(&app),
+            vec!["[homebrew]", "pcre2", "ripgrep", "[unclaimed]", "ghost"]
+        );
+    }
+
+    #[test]
+    fn the_cursor_stays_on_the_same_package_when_the_list_is_rebuilt() {
+        let mut app = machine();
+        app.selected = 2;
+        let before = names(&app)[2].clone();
+        app.rebuild();
+        assert_eq!(names(&app)[app.selected], before);
+    }
+
+    #[test]
+    fn the_window_does_not_move_when_the_cursor_is_already_inside_it() {
+        let mut app = machine();
+        app.selected = 1;
+        app.scroll_into_view(3);
+        assert_eq!(app.offset, 0, "nothing should jump");
+    }
+
+    #[test]
+    fn the_window_follows_the_cursor_off_either_end() {
+        let mut app = machine();
+        app.selected = 2;
+        app.scroll_into_view(2);
+        assert_eq!(app.offset, 1);
+        app.selected = 0;
+        app.scroll_into_view(2);
+        assert_eq!(app.offset, 0);
     }
 
     #[test]

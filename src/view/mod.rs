@@ -5,6 +5,9 @@
 
 pub mod app;
 pub mod plain;
+pub mod row;
+#[path = "loop_.rs"]
+pub mod run;
 pub mod term;
 pub mod testkit;
 pub mod ui;

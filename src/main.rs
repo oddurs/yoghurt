@@ -8,7 +8,7 @@ use std::io::{self, IsTerminal as _, Write as _};
 use std::process::ExitCode;
 
 use yoghurt::model::fact::Source as _;
-use yoghurt::view::plain;
+use yoghurt::view::{app::App, plain, run};
 use yoghurt::{Graph, Homebrew, Walk};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -33,8 +33,10 @@ Columns:
 /// What the arguments asked for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Action {
-    /// Read the machine and print it.
+    /// Read the machine and print it as a table.
     Survey,
+    /// Read the machine and open the interface.
+    Interface,
     /// Explain the arguments.
     Help,
     /// Say which version this is.
@@ -67,6 +69,9 @@ fn main() -> ExitCode {
 /// Returns a human-readable message when the arguments are not understood.
 fn parse(args: &[String]) -> Result<Action, String> {
     match args {
+        // A terminal gets the interface; a pipe gets the table. `--plain`
+        // forces the table either way.
+        [] if io::stdout().is_terminal() => Ok(Action::Interface),
         [] => Ok(Action::Survey),
         [one] if one == "--plain" => Ok(Action::Survey),
         [one] if one == "-h" || one == "--help" => Ok(Action::Help),
@@ -85,10 +90,10 @@ fn run(action: Action) -> Result<String, String> {
     match action {
         Action::Help => Ok(USAGE.to_owned()),
         Action::Version => Ok(format!("yoghurt {VERSION}\n")),
-        Action::Survey => {
-            // Until the interface exists in 0017, both paths lead to the table.
-            let _tty = io::stdout().is_terminal();
-            Ok(plain::table(&survey()?))
+        Action::Survey => Ok(plain::table(&survey()?)),
+        Action::Interface => {
+            run::run(App::new(survey()?)).map_err(|e| e.to_string())?;
+            Ok(String::new())
         }
     }
 }
@@ -131,8 +136,13 @@ mod tests {
     }
 
     #[test]
-    fn bare_and_plain_both_survey() {
-        assert_eq!(parse(&args(&[])).unwrap(), Action::Survey);
+    fn plain_always_prints_the_table() {
         assert_eq!(parse(&args(&["--plain"])).unwrap(), Action::Survey);
+    }
+
+    #[test]
+    fn a_bare_invocation_follows_the_terminal() {
+        // The test harness has no tty, so this is the pipe case.
+        assert_eq!(parse(&args(&[])).unwrap(), Action::Survey);
     }
 }

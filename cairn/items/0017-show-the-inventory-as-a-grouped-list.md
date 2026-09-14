@@ -2,8 +2,9 @@
 id: 17
 title: Show the inventory as a grouped list
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 13
 - 16
@@ -46,3 +47,7 @@ everything it needs to with no colour at all.
 ## 2026-09-14
 
 0013 measured 1652 orphan artifacts of 3270 on this machine. Most are macOS system binaries under /usr/bin, /bin and /sbin, which no package manager owns and which are not interesting. Showing them as orphans would bury the 35 applications that actually are. The list needs either a system pseudo-source or a rule that unowned paths under the system prefixes are not orphans.
+
+## 2026-09-14
+
+No per-row source column: the list is grouped by source, so the heading above every row already says it and repeating it cost twelve columns for nothing. It comes back when 0033 adds the other grouping axes.

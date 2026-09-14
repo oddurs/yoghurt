@@ -4,17 +4,17 @@
 
 ## v0.1 — See it
 
-`########··` 72% · 13 of 18 done · due 2026-10-20
+`########··` 74% · 14 of 19 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ### backlog
 
-- [ ] `0017` Show the inventory as a grouped list <sup>feature · p0 · list</sup>
 - [ ] `0018` Answer "why is this here" in the detail pane <sup>feature · p0 · detail</sup>
 - [ ] `0019` Drive every one of those with the mouse <sup>feature · p0 · mouse</sup>
 - [ ] `0022` Say macOS, and make CI say so too <sup>chore · p1 · packaging</sup>
 - [ ] `0023` Rewrite the README around what it shows <sup>docs · p1 · docs</sup>
+- [ ] `0070` The commit-msg hook rejects the word regenerated <sup>bug · p2 · packaging</sup>
 
 ### done
 
@@ -28,6 +28,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0014` Render the interface into a buffer a test can read <sup>chore · p0 · testing</sup>
 - [x] `0015` Open and restore the terminal without leaving it broken <sup>feature · p0 · runtime</sup>
 - [x] `0016` Draw the chrome: header, status strip, footer <sup>feature · p0 · chrome</sup>
+- [x] `0017` Show the inventory as a grouped list <sup>feature · p0 · list</sup>
 - [x] `0021` Print a table when stdout is not a terminal <sup>feature · p1 · cli</sup>
 - [x] `0068` Correct the claims the Homebrew spike invalidated <sup>chore · p0 · docs</sup>
 - [x] `0069` Organize the crate into model, sources and interface <sup>chore · p1 · runtime</sup>
