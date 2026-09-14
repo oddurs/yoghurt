@@ -7,7 +7,7 @@ milestone: v0.2
 depends_on:
 - 13
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p0
 effort: s
 area: path
@@ -41,3 +41,7 @@ is interesting, a wrapper script shadowing its own binary is noise.
 Timebox: half a day. The answer is the count, the breakdown, and a decision.
 
 ## Answer
+
+## 2026-09-14
+
+Early evidence from 0013 on this machine: 26 contested command names out of 2178. Real conflicts (bash: homebrew beats /bin/bash; docker: /usr/local/bin beats orbstack) are mixed with noise (fzf beating /opt/homebrew/opt/fzf/bin/fzf, which is the same package reached through Homebrew's own opt symlink). The spike should count real conflicts separately from a package shadowing itself.

@@ -2,13 +2,14 @@
 id: 13
 title: Answer the four structural questions
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 10
 - 12
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p0
 effort: m
 area: graph
@@ -39,3 +40,7 @@ path from a package back to a wanted one is already computed.
 - [ ] `pulled in` returns the path back to the nearest wanted package, not just a bool
 - [ ] A package that is both wanted and depended on counts as wanted
 - [ ] All four run over a 300-node graph in under 10ms
+
+## 2026-09-14
+
+Measured on the real machine: why over 224 packages 139us, orphan+broken over 3270 artifacts 7.0ms, contested over 2178 commands 84us. All inside the 10ms criterion. Found: 88 wanted, 133 pulled in, 3 unexplained, 1652 orphan artifacts, 2 genuinely broken symlinks.
