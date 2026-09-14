@@ -21,6 +21,11 @@ categories = ["command-line-utilities", "development-tools"]
 # mouse reporting in particular is not worth reimplementing under
 # `unsafe_code = "forbid"`.
 crossterm = "0.29"
+# Already in the tree via crossterm, so declaring it directly costs no new
+# supply chain. Needed because `unsafe_code = "forbid"` rules out calling
+# `libc::signal` here, and a terminal left in raw mode is the worst thing this
+# program can do to somebody.
+signal-hook = { version = "0.3", default-features = false }
 ratatui = "0.30"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
