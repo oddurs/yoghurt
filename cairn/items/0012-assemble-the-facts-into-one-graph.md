@@ -2,12 +2,13 @@
 id: 12
 title: Assemble the facts into one graph
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 9
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 priority: p0
 effort: m
 area: graph
@@ -37,3 +38,7 @@ own. Adding a package manager must never require touching this file.
 - [ ] Two sources claiming one artifact is representable, not a panic
 - [ ] Node and edge counts are asserted against a hand-written fact set in tests
 - [ ] A cycle in the dependency edges does not hang any traversal
+
+## 2026-09-14
+
+owners_of is a prefix lookup against a reverse index built at assembly, not a scan over packages: 0013 asks who owns a path once per artifact, and on this machine that is 600+ lookups. Package.outdated is a bool with a separate latest, rather than Option<Option<String>> — a source can know something is stale without knowing what is newer.

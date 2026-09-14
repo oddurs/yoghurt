@@ -9,8 +9,10 @@
 //! and knows nothing else about the program.
 
 pub mod fact;
+pub mod graph;
 
 pub use fact::{Fact, PackageId, ScanError, Source};
+pub use graph::Graph;
 
 use std::fs;
 use std::path::{Path, PathBuf};
