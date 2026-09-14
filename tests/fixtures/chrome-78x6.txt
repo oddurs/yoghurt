@@ -1,0 +1,6 @@
+ yoghurt  mba-oddur                                          scanned just now 
+ 1 wanted   0 pulled in   0 outdated   0 unexplained   0 broken               
+──────────────────────────────────────────────────────────────────────────────
+  The inventory lands here.                                                   
+                                                                              
+ q quit  ? help                                                               
