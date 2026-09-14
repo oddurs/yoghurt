@@ -41,6 +41,7 @@ everything it needs to with no colour at all.
 - [ ] The cursor stays on the same item when a group collapses or the list refilters
 - [ ] The list does not jump when the cursor is already visible
 - [ ] 300 rows scroll without a perceptible frame cost
+- [ ] `yoghurt` with a tty opens this instead of the table (moved from 0021)
 
 ## 2026-09-14
 
