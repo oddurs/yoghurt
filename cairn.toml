@@ -1,0 +1,193 @@
+# cairn.toml — the schema for yoghurt's roadmap and issues.
+#
+#   cairn config          show the resolved schema
+#   cairn check           validate every item against it
+#   man cairn             full reference
+
+format = 3
+
+[project]
+name = "yoghurt"
+dir = "cairn/items"
+id_width = 4
+default_type = "feature"
+default_status = "backlog"
+url = "https://github.com/oddurs/yoghurt/blob/main"
+
+# ─── Item types ──────────────────────────────────────────────────────────────
+
+[[type]]
+name = "feature"
+icon = "+"
+color = "cyan"
+template = """
+## Problem
+
+## Proposal
+
+## Acceptance criteria
+
+- [ ]
+"""
+
+[[type]]
+name = "bug"
+icon = "!"
+color = "red"
+template = """
+## What happens
+
+## What should happen
+
+## Reproduction
+
+1.
+"""
+
+[[type]]
+name = "chore"
+icon = "~"
+color = "gray"
+
+[[type]]
+name = "spike"
+icon = "?"
+color = "magenta"
+template = """
+## Question
+
+## Why it has to be answered before the work
+
+## Options
+
+## What would settle it
+
+## Answer
+
+<!-- Filled in when the spike closes. A spike that closes with no answer
+     recorded was a waste of the time it took. -->
+"""
+
+[[type]]
+name = "docs"
+icon = "*"
+color = "blue"
+
+[[type]]
+name = "milestone"
+description = "See what is installed on this machine, and where it came from."
+groups = "one"
+inverse = "scheduled"
+
+# ─── Statuses ────────────────────────────────────────────────────────────────
+
+[[status]]
+name = "backlog"
+category = "open"
+color = "gray"
+
+[[status]]
+name = "planned"
+category = "open"
+color = "blue"
+
+[[status]]
+name = "doing"
+label = "in progress"
+category = "active"
+color = "yellow"
+
+[[status]]
+name = "blocked"
+category = "active"
+color = "red"
+
+[[status]]
+name = "done"
+category = "done"
+color = "green"
+
+[[status]]
+name = "dropped"
+category = "dropped"
+color = "gray"
+board = false
+
+# ─── Fields ──────────────────────────────────────────────────────────────────
+
+[[field]]
+name = "due"
+kind = "date"
+description = "when a milestone is meant to land"
+
+[[field]]
+name = "part_of"
+kind = "ref"
+target = "*"
+cardinality = "many"
+acyclic = true
+rollup = true
+inverse = "contains"
+description = "a larger piece of work this belongs to"
+
+[[field]]
+name = "priority"
+kind = "enum"
+values = ["p0", "p1", "p2", "p3"]
+default = "p2"
+column = true
+description = "p0 means this milestone does not ship without it"
+
+[[field]]
+name = "effort"
+kind = "enum"
+values = ["s", "m", "l", "xl"]
+description = "Rough size, not an estimate"
+
+# The subsystems, taken from how the code is actually laid out. The first four
+# are the architecture: sources emit facts, the graph is the only place with
+# logic, the scan is ground truth, and everything else is a projection.
+[[field]]
+name = "area"
+kind = "enum"
+values = [
+  "source",     # adapters, and the facts they emit
+  "graph",      # the machine model and the four structural questions
+  "scan",       # the PATH and filesystem walk, cache, freshness
+  "chrome",     # header, status strip, facets, footer, pane layout
+  "list",       # the Inventory view
+  "path",       # the Path view
+  "map",        # the Map view
+  "detail",     # the detail pane and the why-chain
+  "mouse",      # hit rectangles, hover, click, drag, scroll
+  "filter",     # the filter grammar and saved queries
+  "theme",      # colour roles, mono, NO_COLOR
+  "cli",        # flags, --plain, piping, --help
+  "runtime",    # terminal lifecycle, threads, signals, panics
+  "config",     # config.toml and session state
+  "testing",
+  "docs",
+  "packaging",
+]
+column = true
+description = "Subsystem this touches"
+
+# ─── Views ───────────────────────────────────────────────────────────────────
+
+[[view]]
+name = "now"
+description = "What is actually being worked on"
+filter = "category=active"
+sort = "priority,id"
+
+[[view]]
+name = "next"
+description = "Planned work for the nearest milestone"
+filter = "status=planned"
+sort = "priority,milestone"
+
+[[view]]
+name = "triage"
+description = "Items that still need a milestone or a priority"
+filter = "milestone=,category!=done"
+columns = ["id", "type", "title", "created"]

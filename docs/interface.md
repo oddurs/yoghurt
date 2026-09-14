@@ -30,7 +30,49 @@ largest single blind spot on the machine.
 than the number of *packages*, and the mapping between them is invisible. When
 two packages both provide `python3`, nothing tells you which one wins.
 
-So: a provenance gap, an intent gap, and a resolution gap. Three views.
+So: a provenance gap, an intent gap, and a resolution gap.
+
+## The model
+
+Those three gaps are a way of noticing the problem, not a reason for three
+views. The reason is that a machine has exactly three kinds of thing worth
+naming, and everything else is an edge between them.
+
+    package   a manager's record of something      -> Inventory
+    artifact  actual bytes on disk                 -> Map
+    command   a name resolvable on PATH            -> Path
+
+    package  --owns-->     artifact
+    artifact --provides--> command
+    package  --depends-->  package
+    (you)    --wanted-->   package
+
+Every state this interface shows is then a query over that graph rather than a
+feature somebody remembered to build:
+
+    orphan     an artifact with no owning package
+    broken     a package owning an artifact that is not there
+    pulled in  a package reachable only through `depends`, never from `wanted`
+    shadowed   two artifacts providing one command; PATH order decides
+
+Four structural facts generate every glyph below. That is the test the design
+has to pass: the model produces the features instead of listing them. It also
+says there is no fourth view, because there is no fourth kind of node.
+
+Architecturally this falls out as one direction of dependency:
+
+    adapters --emit--> facts --assemble--> graph --project--> views
+
+An adapter's entire job is `fn scan(&self) -> Vec<Fact>`. It knows nothing about
+the interface, nothing about the other adapters, and nothing about scoring. All
+logic lives in the graph, so adding a package manager is one file that touches
+nothing else.
+
+The one thing that is not an adapter is the `PATH` walk. That is ground truth:
+adapters make claims, and the walk says what is actually there. Orphans are not
+detected — they are what is left over. Which is why the first version is useful
+with only Homebrew wired up: everything else on the machine already shows as
+`?`.
 
 ## Chrome
 
@@ -41,7 +83,7 @@ two tools should feel like the same hand.
 ```
  yoghurt  mba-oddur   293 packages · 8 sources · 6.4G          scanned 2m ago ⟳
 ───────────────────────────────────────────────────────────────────────────────
- 47 wanted   122 pulled in   31 outdated   12 stale   4 shadowed   2 broken
+ 47 wanted   122 pulled in   31 outdated   4 shadowed   2 broken
 ```
 
 Line one is identity and totals. The `⟳` spins while a scan is in flight, and
@@ -114,7 +156,7 @@ the red.
 | `◐` | pulled in | A dependency. You did not ask for it |
 | `?` | orphan | On disk or on PATH, no manager claims it |
 | `⊘` | shadowed | Something else with this name wins on PATH |
-| `·` | stale | Not executed in months |
+| `·` | stale | Not executed in months — *parked; see below* |
 | `✕` | broken | Dangling symlink, or the binary is gone |
 
 ### Grouping
@@ -128,7 +170,7 @@ collapse on click and carry their own totals and a share-of-disk bar.
 | **role** | "What did I actually choose?" — the 47 versus the 122 |
 | **size** | ">100M, 10–100M, 1–10M, <1M" — where the 5.6G went |
 | **age** | "What have I not touched in a year?" |
-| **health** | Outdated, stale, shadowed, broken, fine |
+| **health** | Outdated, shadowed, broken, fine |
 
 ### Detail — "why is this here?"
 
@@ -219,18 +261,34 @@ Clicking a loser opens detail on the loser, which is usually the moment you
 discover you have been running a year-old `rg` from `cargo install` without
 noticing.
 
-## Marking and bulk action
+## What it will not do
 
-`space` marks a row; drag-marquee marks in the map. Marked rows carry `▪`, and
-the strip becomes the action bar:
+An earlier draft of this had `space` to mark rows, drag-marquee selection in the
+map, and a bulk uninstall composing one `brew uninstall a b c`. That is now cut,
+permanently rather than deferred.
 
-```
- 7 marked · 2.1G          [ Uninstall ]  [ Pin ]  [ Export list ]  [ Clear ]
-```
+**yoghurt never writes to your machine.** It does not install, uninstall,
+upgrade, prune, or touch your shell configuration. The only things it writes are
+its own cache and its own config.
 
-Uninstall composes **one** command — `brew uninstall glib gtk+3 …` — shows it
-verbatim, and requires a typed confirmation. Nothing here is undoable, so
-nothing here is one keystroke.
+This is a stronger promise than any feature it gives up, and it is worth more to
+a tool whose whole job is to be trusted with a complete view of your machine.
+The detail pane shows the uninstall command as copyable text; running it is your
+decision, in your shell, where you can see it.
+
+Two other things are parked for a reason worth writing down:
+
+**Last-used, and the `·` glyph.** "What have I not run in a year" is the most
+useful question this could answer, and it may not be answerable. Access times
+are the obvious source and they are unreliable — `relatime` and `noatime` are
+common, and on some filesystems the field means nothing. A glyph backed by a
+number that is silently wrong is worse than no glyph, so it does not ship until
+something establishes where a trustworthy signal comes from.
+
+**Linux.** v1.0 says macOS and means it. Homebrew, `/Applications`, `codesign`
+and `Info.plist` are the machine this is designed against. The graph and the
+`PATH` walk are portable; five more adapters and a different idea of what
+"installed" means are not, yet.
 
 ## Scanning
 
@@ -255,11 +313,11 @@ The interface never waits on a subprocess.
    and the PATH directories invalidates the cache, so a `brew install` in
    another pane appears here without being asked.
 
-## Read-mostly, and read-only by default
+## Read-only, permanently
 
-yoghurt is for looking. Every mutation — uninstall, prune, pin — is explicit,
-shows the exact command it is about to run, and confirms. The tool that surveys
-your machine is not the tool that should surprise it.
+yoghurt is for looking. The tool that surveys your machine is not the tool that
+should surprise it, and the way to guarantee that is not a confirmation dialog —
+it is not having the code.
 
 ## Theme
 
@@ -278,21 +336,26 @@ Every one of these has a mouse equivalent. The mouse is not an afterthought
 bolted onto a keyboard interface; both are complete.
 
 ```
- ↑↓ jk    move              tab    view            space  mark
- ↵        inspect           g      group axis      s      sort
- /        filter            !      problems only   m      map metric
- r        rescan            a      show all        e      reveal
- esc      back / clear      ?      help            q      quit
+ ↑↓ jk    move              tab    view            g      group axis
+ ↵        inspect           s      sort            m      map metric
+ /        filter            !      problems only   a      show all
+ r        rescan            e      reveal          ?      help
+ esc      back / clear      q      quit
 ```
 
 ## Build order
 
-1. **Adapter trait, Homebrew adapter, Inventory, detail pane.** Homebrew is 60%
-   of the rows and 90% of the disk, and one JSON call gives leaf-vs-dependency,
-   which is the insight the whole tool is built on.
-2. **Path view.** It needs nothing but a `$PATH` walk and `stat`, and it finds
-   real bugs on day one.
-3. **Remaining adapters** — cargo, npm, rustup, go, gem, pipx/uv, applications,
-   and the orphan catch-all.
-4. **Map.** The most work, and it is worth nothing until there is a full
-   inventory with real sizes to draw.
+The backlog is the plan: `cairn roadmap`, or `ROADMAP.md`. Five milestones.
+
+1. **v0.1 — See it.** `PATH` ground truth, the Homebrew adapter, the Inventory
+   and the why-chain. Homebrew is 60% of the rows and 90% of the disk, and one
+   JSON call gives leaf-against-dependency, which is the insight the whole tool
+   rests on. Everything Homebrew does not claim already shows as an orphan.
+2. **v0.2 — All of it.** The remaining seven adapters, and a cache so it opens
+   instantly.
+3. **v0.3 — Contention.** The Path view. Gated on a spike, because it is the
+   most speculative part of this document.
+4. **v0.4 — The chart.** The Map. Also gated on a spike, because a treemap that
+   is illegible at eighty columns is a bar chart with extra steps.
+5. **v1.0 — Stand behind it.** No new surface. Packaging, documentation, and the
+   promises above written down where somebody can hold us to them.
