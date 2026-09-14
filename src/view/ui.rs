@@ -10,8 +10,10 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
+use std::fmt::Write as _;
 
 use crate::view::app::App;
+use crate::view::row::{Item, Row, State};
 
 /// Below this the header drops to the identity and the counts.
 const NARROW: u16 = 80;
@@ -54,9 +56,9 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
         left.push(Span::raw("   "));
         left.push(Span::styled(
             format!(
-                "{} packages · {} sources · {}",
-                totals.packages,
-                totals.sources,
+                "{} · {} · {}",
+                plural(totals.packages, "package"),
+                plural(totals.sources, "source"),
                 super::plain::human(totals.bytes)
             ),
             Style::new().fg(Color::DarkGray),
@@ -94,7 +96,17 @@ fn truncate(spans: &mut Vec<Span<'_>>, budget: usize) {
 /// answer to "is anything wrong", which is what most people open this for.
 fn draw_strip(frame: &mut Frame, app: &App, area: Rect) {
     let mut spans = vec![Span::raw(" ")];
+    let mut used = 1;
+
     for (label, count) in app.facets() {
+        let text = format!("{count} {label}   ");
+        let width = text.chars().count();
+        // Drop a facet whole rather than cutting it in half. "2 bro" is worse
+        // than not saying it.
+        if used + width > usize::from(area.width) {
+            break;
+        }
+        used += width;
         spans.push(Span::styled(
             count.to_string(),
             Style::new()
@@ -131,27 +143,160 @@ fn draw_rule(frame: &mut Frame, area: Rect) {
     );
 }
 
-/// The view itself. The list lands here in 0017.
+/// Widths at which a column stops paying for itself.
+///
+/// They drop in order of how little they answer: role, then size, then version.
+/// The name and the glyph never drop.
+///
+/// There is no source column. The list is grouped by source, so the heading
+/// above every row already says it, and repeating it costs twelve columns for
+/// nothing. When 0033 adds the other grouping axes it comes back for those.
+const SHOW_ROLE: u16 = 80;
+const SHOW_SIZE: u16 = 68;
+const SHOW_VERSION: u16 = 56;
+
+/// The inventory.
 fn draw_body(frame: &mut Frame, app: &App, area: Rect) {
-    let totals = app.totals();
-    let message = if totals.packages == 0 {
-        "  Nothing found. No package manager on this machine reported anything."
-    } else {
-        "  The inventory lands here."
+    if app.rows.is_empty() {
+        let message = if app.graph.packages().count() == 0 {
+            "  Nothing found. No package manager on this machine reported anything."
+        } else {
+            "  Nothing matches."
+        };
+        frame.render_widget(
+            Paragraph::new(Line::from(Span::styled(
+                message,
+                Style::new().fg(Color::DarkGray),
+            ))),
+            area,
+        );
+        return;
+    }
+
+    let height = usize::from(area.height);
+    let lines: Vec<Line<'_>> = app
+        .rows
+        .iter()
+        .enumerate()
+        .skip(app.offset)
+        .take(height)
+        .map(|(index, row)| line_for(row, index == app.selected, area.width))
+        .collect();
+
+    frame.render_widget(Paragraph::new(lines), area);
+}
+
+/// One line of the list.
+fn line_for(row: &Row, selected: bool, width: u16) -> Line<'_> {
+    let spans = match row {
+        Row::Group {
+            key,
+            count,
+            bytes,
+            collapsed,
+        } => group_line(key, *count, *bytes, *collapsed, width),
+        Row::Item(item) => item_line(item, width),
     };
-    let _ = app;
-    frame.render_widget(
-        Paragraph::new(Line::from(Span::styled(
-            message,
-            Style::new().fg(Color::DarkGray),
-        ))),
-        area,
-    );
+    let line = Line::from(spans);
+    if selected {
+        line.style(Style::new().add_modifier(Modifier::REVERSED))
+    } else {
+        line
+    }
+}
+
+/// A heading, with what is under it.
+fn group_line(key: &str, count: usize, bytes: u64, collapsed: bool, width: u16) -> Vec<Span<'_>> {
+    let arrow = if collapsed { "▸" } else { "▾" };
+    let right = format!("{count}  {}  ", super::plain::human(bytes));
+    let left = format!(" {arrow} {key}");
+    let gap = usize::from(width).saturating_sub(left.chars().count() + right.chars().count());
+
+    vec![
+        Span::styled(
+            left,
+            Style::new().fg(Color::White).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(" ".repeat(gap)),
+        Span::styled(right, Style::new().fg(Color::DarkGray)),
+    ]
+}
+
+/// One package or orphan.
+///
+/// Everything right of the name is fixed width and right-aligned, so the eye
+/// runs down a column instead of hunting along each row.
+fn item_line(item: &Item, width: u16) -> Vec<Span<'_>> {
+    let mut right = String::new();
+    if width >= SHOW_VERSION {
+        let _ = write!(
+            right,
+            "{:>12}  ",
+            trim(item.version.as_deref().unwrap_or("-"), 12)
+        );
+    }
+    if width >= SHOW_ROLE {
+        let _ = write!(right, "{:>8}  ", item.state.label());
+    }
+    if width >= SHOW_SIZE {
+        let _ = write!(right, "{:>6}  ", super::plain::size(item.bytes));
+    }
+    let used = 4 + right.chars().count();
+    let room = usize::from(width).saturating_sub(used).max(8);
+    let name = trim(&item.name, room);
+    let gap = room.saturating_sub(name.chars().count());
+
+    vec![
+        Span::raw("  "),
+        Span::styled(
+            item.state.glyph(),
+            Style::new().fg(state_colour(item.state)),
+        ),
+        Span::raw(" "),
+        Span::raw(name),
+        Span::raw(" ".repeat(gap)),
+        Span::styled(right, Style::new().fg(Color::DarkGray)),
+    ]
+}
+
+/// One hue per state, matching the strip above it.
+fn state_colour(state: State) -> Color {
+    match state {
+        State::Fine => Color::Green,
+        State::Outdated => Color::Yellow,
+        State::PulledIn => Color::Blue,
+        State::Unexplained | State::Orphan => Color::Magenta,
+        State::Broken => Color::Red,
+    }
+}
+
+/// `1 package`, `2 packages`. Every noun here pluralises by adding an s.
+fn plural(count: usize, noun: &str) -> String {
+    if count == 1 {
+        format!("{count} {noun}")
+    } else {
+        format!("{count} {noun}s")
+    }
+}
+
+/// Cut a string to fit, marking that something was lost.
+fn trim(text: &str, width: usize) -> String {
+    if text.chars().count() <= width {
+        return text.to_owned();
+    }
+    let kept: String = text.chars().take(width.saturating_sub(1)).collect();
+    format!("{kept}…")
 }
 
 /// The keys that do something right now.
 fn draw_footer(frame: &mut Frame, area: Rect) {
-    let keys = [("q", "quit"), ("?", "help")];
+    let keys = [
+        ("↑↓", "move"),
+        ("space", "fold"),
+        ("g", "top"),
+        ("G", "end"),
+        ("q", "quit"),
+    ];
     let mut spans = vec![Span::raw(" ")];
     for (key, what) in keys {
         spans.push(Span::styled(key, Style::new().add_modifier(Modifier::BOLD)));
@@ -212,7 +357,11 @@ mod tests {
     fn the_totals_appear_once_there_is_room_for_them() {
         let mut app = machine();
         app.host = "mba".to_owned();
-        assert!(render(&app, 100, 4)[0].contains("1 packages · 1 sources · 6.2M"));
+        assert!(
+            render(&app, 100, 4)[0].contains("1 package · 1 source · 6.2M"),
+            "{:?}",
+            render(&app, 100, 4)[0]
+        );
         assert!(
             !render(&app, 60, 4)[0].contains("packages ·"),
             "no room at 60 columns"
@@ -232,6 +381,35 @@ mod tests {
     fn an_empty_machine_says_so_rather_than_showing_a_blank_pane() {
         let app = App::new(Graph::from_facts([]));
         assert!(render(&app, 80, 6).join("\n").contains("Nothing found"));
+    }
+
+    #[test]
+    fn a_facet_that_does_not_fit_is_dropped_whole() {
+        let frame = render(&machine(), 30, 4);
+        assert!(
+            !frame[1].contains("bro"),
+            "a half-written word is worse than silence: {:?}",
+            frame[1]
+        );
+        assert!(frame[1].starts_with(" 1 wanted"), "{:?}", frame[1]);
+    }
+
+    #[test]
+    fn counts_are_pluralised() {
+        use super::plural;
+        assert_eq!(plural(1, "package"), "1 package");
+        assert_eq!(plural(0, "source"), "0 sources");
+        assert_eq!(plural(224, "package"), "224 packages");
+    }
+
+    #[test]
+    fn the_source_is_not_repeated_on_every_row_under_its_own_heading() {
+        let frame = render(&machine(), 120, 6).join("\n");
+        assert_eq!(
+            frame.matches("homebrew").count(),
+            1,
+            "the group heading says it once; the rows must not say it again:\n{frame}"
+        );
     }
 
     #[test]
