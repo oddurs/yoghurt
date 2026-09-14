@@ -62,6 +62,9 @@ pub struct Graph {
     /// Symlink to target, so ownership can follow a link the way the filesystem
     /// does.
     resolves: BTreeMap<PathBuf, PathBuf>,
+    /// Reverse of `Package::depends_on`. The why-chain walks this: it asks who
+    /// needed a package, not what a package needs.
+    dependents: BTreeMap<PackageId, BTreeSet<PackageId>>,
 }
 
 impl Graph {
@@ -112,6 +115,11 @@ impl Graph {
                     declared_directly,
                 } => {
                     graph.packages.entry(on.clone()).or_default();
+                    graph
+                        .dependents
+                        .entry(on.clone())
+                        .or_default()
+                        .insert(package.clone());
                     let entry = graph.packages.entry(package).or_default();
                     entry.depends_on.insert(on.clone());
                     if declared_directly {
@@ -229,6 +237,14 @@ impl Graph {
             .find_map(|ancestor| owners.get(ancestor))
             .map(|found| found.iter().collect())
             .unwrap_or_default()
+    }
+
+    /// Everything that needs this package directly.
+    #[must_use]
+    pub fn dependents_of(&self, id: &PackageId) -> &BTreeSet<PackageId> {
+        static NONE: std::sync::LazyLock<BTreeSet<PackageId>> =
+            std::sync::LazyLock::new(BTreeSet::new);
+        self.dependents.get(id).unwrap_or(&NONE)
     }
 
     /// What this path points at, if it is a symlink anything resolved.
