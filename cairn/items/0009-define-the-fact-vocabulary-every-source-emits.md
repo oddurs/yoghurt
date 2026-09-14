@@ -2,10 +2,9 @@
 id: 9
 title: Define the fact vocabulary every source emits
 type: feature
-status: doing
+status: done
 milestone: v0.1
 assignee: Oddur Sigurdsson
-claimed: 2026-09-13
 created: 2026-09-13
 updated: 2026-09-14
 priority: p0
