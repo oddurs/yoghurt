@@ -103,6 +103,12 @@ impl Axis {
         }
     }
 
+    /// The axis with this name, if there is one.
+    #[must_use]
+    pub fn from_label(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|axis| axis.label() == name)
+    }
+
     /// The next axis round.
     #[must_use]
     pub fn next(self) -> Self {
@@ -258,6 +264,12 @@ impl Facet {
         }
     }
 
+    /// The facet with this name, if there is one.
+    #[must_use]
+    pub fn from_label(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|facet| facet.label() == name)
+    }
+
     /// Whether an item belongs to it.
     #[must_use]
     pub fn matches(self, item: &Item) -> bool {
@@ -311,6 +323,12 @@ impl Sort {
             Self::State => "state",
             Self::Version => "version",
         }
+    }
+
+    /// The column with this name, if there is one.
+    #[must_use]
+    pub fn from_label(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|sort| sort.label() == name)
     }
 
     /// The next column round.

@@ -2,8 +2,9 @@
 id: 75
 title: Take a screenshot without a terminal
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 created: 2026-09-14
 updated: 2026-09-14
 priority: p2
@@ -33,3 +34,7 @@ without anybody photographing a terminal.
 - [ ] It accepts the grouping, sort and filter arguments so any view is reachable
 - [ ] No terminal is required, so it works over a pipe and in CI
 - [ ] The output is exactly the width asked for, every line
+
+## 2026-09-14
+
+First screenshot made the applications problem obvious in one frame: 45 applications, every one 'orphan' and every one 0B. 0073 fixes the first, and the second is 0010's deliberate decision not to walk bundles for size — both visible at a glance now rather than by reading a table.
