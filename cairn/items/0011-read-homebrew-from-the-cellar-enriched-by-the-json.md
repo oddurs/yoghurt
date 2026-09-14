@@ -2,8 +2,9 @@
 id: 11
 title: Read Homebrew from the Cellar, enriched by the JSON
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 8
 - 9
@@ -60,3 +61,11 @@ sometimes an app.
 ## 2026-09-14
 
 The walk resolves symlinks with canonicalize(), so ownership matching needs brew's keg paths to be canonical too. If $(brew --prefix) or any ancestor is itself a symlink, keg paths as brew reports them will not prefix-match the walk's resolved paths and every linked binary becomes an orphan. Canonicalize the Cellar root once in the adapter.
+
+## 2026-09-14
+
+Measured on the real machine: 224 packages, 88 wanted, 136 pulled in, every one with a size; the three untrusted-tap formulae appear correctly. Adapter scan is 930ms — the Cellar size walk is 1.8s over 160,000 entries and the brew subprocess is 1.4s, so the subprocess is spawned at construction and collected after the disk has been measured. In sequence it was 1.9s.
+
+## 2026-09-14
+
+One package per formula, not one per keg. Two kegs of fmt are one package that owns two artifacts with their own sizes; the version shown is the linked keg, because that is the one you get when you run it. Splitting into fmt@12.1.0 and fmt@12.2.0 would have made dependency edges unresolvable, since runtime_dependencies names a formula.
