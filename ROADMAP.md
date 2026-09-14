@@ -4,7 +4,7 @@
 
 ## v0.1 — See it
 
-`########··` 79% · 19 of 24 done · due 2026-10-20
+`########··` 74% · 20 of 27 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
@@ -15,6 +15,8 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [ ] `0022` Say macOS, and make CI say so too <sup>chore · p1 · packaging</sup>
 - [ ] `0023` Rewrite the README around what it shows <sup>docs · p1 · docs</sup>
 - [ ] `0070` The commit-msg hook rejects the word regenerated <sup>bug · p2 · packaging</sup>
+- [ ] `0075` Take a screenshot without a terminal <sup>feature · p2 · cli</sup>
+- [ ] `0076` scripts/agent done leaves you in a directory that no longer exists <sup>bug · p2 · cli</sup>
 
 ### done
 
@@ -37,6 +39,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0069` Organize the crate into model, sources and interface <sup>chore · p1 · runtime</sup>
 - [x] `0071` Filtering never matches a command a package provides <sup>bug · p1 · filter</sup>
 - [x] `0072` Group the list by what a thing is <sup>feature · p1 · list</sup>
+- [x] `0074` Always have a fresh install <sup>chore · p1 · packaging</sup>
 
 ## v0.2 — All of it
 

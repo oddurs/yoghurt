@@ -15,6 +15,7 @@ Targets:
   lint       Lint; warnings are errors
   test       Run the full test suite
   build      Build the release binary
+  install    Install it onto your PATH from this working tree
   check      fmt:check && lint && test && build
 USAGE
 }
@@ -34,6 +35,12 @@ test)
 	;;
 build)
 	cargo build --release --locked
+	;;
+install)
+	# From this working tree, so a worktree installs what it is holding rather
+	# than what main happens to say.
+	cargo install --path . --locked --force --quiet
+	printf 'installed %s\n' "$("${CARGO_HOME:-$HOME/.cargo}/bin/yoghurt" --version)"
 	;;
 check)
 	"$0" fmt:check

@@ -26,6 +26,7 @@ scripts/task fmt:check  verify formatting
 scripts/task lint       clippy, warnings denied
 scripts/task test       full test suite
 scripts/task build      release build
+scripts/task install    put it on your PATH from this tree
 scripts/task check      all of the above
 ```
 

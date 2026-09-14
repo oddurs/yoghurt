@@ -1,0 +1,30 @@
+#!/bin/sh
+# Keep the binary on your PATH the same as the source you just merged.
+#
+# Running yesterday's binary while reading today's code is how you spend an
+# hour debugging something that was fixed an hour ago.
+set -eu
+
+# CI merges constantly and installs nothing.
+[ -n "${CI:-}" ] && exit 0
+command -v cargo >/dev/null 2>&1 || exit 0
+
+root=$(git rev-parse --show-toplevel)
+installed=$(yoghurt --version 2>/dev/null || true)
+head=$(git -C "$root" rev-parse --short HEAD)
+
+# `yoghurt 0.1.0 (f054032)` — the parenthesised part is the commit it was built
+# from. Nothing installed, or nothing stamped, means reinstall.
+case "$installed" in
+*"($head)"*)
+	exit 0
+	;;
+esac
+
+# Docs-only merges do not change the binary, so do not spend a build on them.
+if git -C "$root" diff --quiet "ORIG_HEAD" HEAD -- src Cargo.toml Cargo.lock build.rs 2>/dev/null; then
+	exit 0
+fi
+
+printf '\033[1m==>\033[0m post-merge: installing %s\n' "$head"
+"$root/scripts/task" install

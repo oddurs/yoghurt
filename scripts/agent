@@ -76,7 +76,7 @@ cmd_doctor() {
 		report_ok "core.hooksPath is .githooks"
 	fi
 
-	for hook in commit-msg pre-commit pre-push; do
+	for hook in commit-msg pre-commit pre-push post-merge; do
 		if [ -x "$(root)/.githooks/$hook" ]; then
 			report_ok ".githooks/$hook is executable"
 		else
@@ -200,6 +200,13 @@ cmd_done() {
 	git fetch --prune --quiet origin
 	git checkout "$base" --quiet
 	git pull --ff-only --quiet origin "$base"
+
+	# The pull above fires post-merge only when it merges; a fast-forward does
+	# not, so ask directly.
+	if [ -x "$main/.githooks/post-merge" ]; then
+		ORIG_HEAD=$(git rev-parse --short HEAD~1 2>/dev/null || true) \
+			"$main/.githooks/post-merge" || true
+	fi
 
 	say "Done. You are back in $main on $base."
 }
