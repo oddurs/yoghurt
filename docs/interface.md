@@ -323,11 +323,22 @@ The interface never waits on a subprocess.
    and the PATH directories invalidates the cache, so a `brew install` in
    another pane appears here without being asked.
 
-## Read-only, permanently
+## Read-mostly
 
-yoghurt is for looking. The tool that surveys your machine is not the tool that
-should surprise it, and the way to guarantee that is not a confirmation dialog —
-it is not having the code.
+Reading is the default and almost all of what this does. An earlier draft said
+**permanently** read-only, and that was retired deliberately in favour of a
+narrower promise that is still worth making:
+
+- Nothing changes without a typed confirmation, never a keystroke.
+- The exact command is shown before it runs, so you can refuse it or copy it.
+- Nothing happens in bulk without the whole list being shown first.
+- Reading never requires a confirmation, and a mistaken keypress can only ever
+  cost you a redraw.
+
+The reason for the original promise still stands — a tool that surveys your
+machine should not be the tool that surprises it — and the confirmation is what
+keeps it true. What changed is the belief that refusing to act at all was the
+only way to keep it.
 
 ## Theme
 

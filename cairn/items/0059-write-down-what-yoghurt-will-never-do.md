@@ -21,7 +21,8 @@ the limits have to be findable, not implied.
 
 A short, unhedged section in the README and a longer one in the docs:
 
-- yoghurt never installs, uninstalls, upgrades or deletes anything
+- yoghurt never changes anything without showing the exact command first and
+  asking you to type a confirmation
 - yoghurt never writes to your shell configuration
 - yoghurt never contacts the network unless explicitly asked
 - yoghurt is macOS only, and says so rather than half-working elsewhere

@@ -72,8 +72,11 @@ item. The hook enforces all of it.
 
 ## This project in particular
 
-- **Read-only by default.** Anything that uninstalls, prunes, or deletes is
-  behind an explicit confirmation, because it is not undoable.
+- **Read-mostly.** Reading is the default and the overwhelming majority of what
+  this does. Anything that changes the machine — upgrading, uninstalling,
+  pruning — shows the exact command it is about to run and requires a typed
+  confirmation, because none of it is undoable. Nothing ever happens silently,
+  and nothing ever happens in bulk without the whole list being shown first.
 - **Never block the interface on a subprocess.** `brew info` costs seconds and
   sometimes a network round trip. Scanning is asynchronous and fills in as it
   lands; the first frame draws from cache.

@@ -3,30 +3,35 @@ id: 63
 title: Mark items and act on a set of them
 type: feature
 status: backlog
-milestone: later
+milestone: v0.3
 created: 2026-09-13
-updated: 2026-09-13
-priority: p3
+updated: 2026-09-15
+priority: p2
 effort: l
 area: list
 ---
 
 ## Problem
 
-The original design had `space` to mark rows, drag-marquee in the map, and a
-bulk uninstall composing one `brew uninstall a b c`.
+Marking a set of rows and acting on all of them at once is the difference
+between a tool you read and a tool you use. It was parked when yoghurt was
+permanently read-only.
 
 ## Proposal
 
-Parked on purpose, and the reason is the point: yoghurt is permanently
-read-only, and "it cannot break your machine" is a stronger promise than any
-feature this would add. The detail pane already shows the uninstall command as
-copyable text.
+Unparked: the read-only promise was retired deliberately, and this item's own
+criterion said to revisit only if that happened.
 
-If this ever returns, it returns as marking plus composing a command to the
-clipboard — never as executing one.
+`space` marks a row; the strip becomes the action bar. Whatever the action is,
+it composes **one** command for the whole set, shows it verbatim, and requires a
+typed confirmation — never a keystroke, and never in bulk without the list being
+visible first.
 
 ## Acceptance criteria
 
-- [ ] Revisit only if the read-only promise is deliberately retired
-- [ ] If it returns, it composes commands and never executes them
+- [ ] `space` marks and unmarks; the count and total size are shown
+- [ ] An action on a marked set composes one command, not one per row
+- [ ] The command is shown verbatim before anything runs
+- [ ] Confirmation is typed, and the default is to do nothing
+- [ ] Marks are cleared when the filter changes, so you cannot act on rows you
+      can no longer see

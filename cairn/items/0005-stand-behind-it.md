@@ -18,8 +18,8 @@ command, run on their own machine, and rely on.
 ## The promise
 
 yoghurt shows you what is installed on your Mac and where it came from. It
-never installs, never uninstalls, never writes to your machine, and never talks
-to the network unless you ask it to.
+never changes anything without showing you the command and asking you to type a
+confirmation, and never talks to the network unless you ask it to.
 
 ## Done when
 

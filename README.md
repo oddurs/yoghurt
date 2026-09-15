@@ -40,9 +40,10 @@ groundwork for — the inventory, the disk treemap, and the `PATH` resolver — 
 designed in [docs/interface.md](docs/interface.md) and planned in
 [ROADMAP.md](ROADMAP.md), but not yet built.
 
-yoghurt is macOS only, and it never writes to your machine: it does not install,
-uninstall, upgrade, or touch your shell configuration. The only things it writes
-are its own cache and config.
+yoghurt is macOS only and read-mostly. Reading is the default; anything that
+changes the machine shows you the exact command first and asks you to type a
+confirmation. It never touches your shell configuration, and nothing happens
+silently.
 
 ## Install
 
