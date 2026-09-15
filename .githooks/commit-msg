@@ -36,11 +36,15 @@ case "$subject" in
 *.) fail "subject must not end with a period" ;;
 esac
 
-attribution='claude|anthropic|generated with|written by an ai'
+attribution='claude|anthropic|\bgenerated with|written by an ai'
 trailer='^co-authored-by:.*(claude|copilot|chatgpt|openai|anthropic|\\[bot\\])'
 offenders=$(printf '%s\n' "$body" | grep -Eni "$attribution" || true)
 offenders="$offenders$(printf '%s\n' "$body" | grep -Eni "$trailer" || true)"
-offenders="$offenders$(printf '%s\n' "$body" | grep -n '\xf0\x9f\xa4\x96' || true)"
+# Built from octal escapes rather than written as the glyph: a
+# single-quoted '\xf0...' is that text, not those bytes, so this
+# check never fired once in the whole life of the repository.
+robot=$(printf '\360\237\244\226')
+offenders="$offenders$(printf '%s\n' "$body" | grep -nF "$robot" || true)"
 if [ -n "$(printf '%s' "$offenders" | tr -d '[:space:]')" ]; then
 	fail "commit message contains assistant attribution; this repository is published under its author's name.
 
