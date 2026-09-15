@@ -15,8 +15,10 @@ pub struct App {
     pub graph: Graph,
     /// The hostname, for the header.
     pub host: String,
-    /// How long ago the scan finished, in seconds.
-    pub scanned_ago: u64,
+    /// When the scan finished.
+    pub scanned: std::time::SystemTime,
+    /// What went wrong last time, if anything did.
+    pub failure: Option<String>,
     /// Whether a scan is still running.
     pub scanning: bool,
     /// Set when the person has asked to leave.
@@ -73,7 +75,8 @@ impl App {
         Self {
             graph,
             host: hostname(),
-            scanned_ago: 0,
+            scanned: now,
+            failure: None,
             scanning: false,
             quit: false,
             rows,
@@ -87,6 +90,27 @@ impl App {
             filter: Filter::default(),
             mode: Mode::default(),
         }
+    }
+
+    /// Read the machine again, keeping everything the person set up.
+    ///
+    /// The grouping, the sort, the filter, the folds and the cursor all survive:
+    /// a refresh that resets the view is a refresh nobody presses twice.
+    ///
+    /// A source that fails leaves the previous answer standing. A worse machine
+    /// is not an improvement on a stale one.
+    pub fn rescan(&mut self, read: impl FnOnce() -> Result<Graph, String>) {
+        self.scanning = true;
+        match read() {
+            Ok(graph) => {
+                self.graph = graph;
+                self.scanned = std::time::SystemTime::now();
+                self.failure = None;
+            }
+            Err(message) => self.failure = Some(message),
+        }
+        self.scanning = false;
+        self.rebuild();
     }
 
     /// Rebuild the list, keeping the cursor on whatever it was pointing at.
@@ -325,17 +349,27 @@ impl App {
     }
 
     /// Freshness, in the words a person uses.
+    ///
+    /// Takes `now` rather than reading the clock, so the interface can render
+    /// the same frame twice and get the same answer.
     #[must_use]
-    pub fn freshness(&self) -> String {
+    pub fn freshness_at(&self, now: std::time::SystemTime) -> String {
         if self.scanning {
             return "scanning".to_owned();
         }
-        match self.scanned_ago {
+        let seconds = now.duration_since(self.scanned).map_or(0, |d| d.as_secs());
+        match seconds {
             0..=5 => "scanned just now".to_owned(),
             s @ 6..=89 => format!("scanned {s}s ago"),
             s @ 90..=5399 => format!("scanned {}m ago", s / 60),
             s => format!("scanned {}h ago", s / 3600),
         }
+    }
+
+    /// Freshness now.
+    #[must_use]
+    pub fn freshness(&self) -> String {
+        self.freshness_at(std::time::SystemTime::now())
     }
 }
 
@@ -446,16 +480,72 @@ mod tests {
 
     #[test]
     fn freshness_is_said_the_way_a_person_says_it() {
-        let mut app = machine();
+        let app = machine();
         for (seconds, expected) in [
             (0, "scanned just now"),
             (30, "scanned 30s ago"),
             (120, "scanned 2m ago"),
             (7200, "scanned 2h ago"),
         ] {
-            app.scanned_ago = seconds;
-            assert_eq!(app.freshness(), expected);
+            let later = app.scanned + std::time::Duration::from_secs(seconds);
+            assert_eq!(app.freshness_at(later), expected);
         }
+    }
+
+    #[test]
+    fn a_rescan_keeps_everything_the_person_set_up() {
+        use crate::view::row::{Axis, Facet, Sort};
+        let mut app = machine();
+        app.axis = Axis::Role;
+        app.sort = Sort::Size;
+        app.filter.facet = Some(Facet::Wanted);
+        app.collapsed.insert("wanted".to_owned());
+        app.rebuild();
+
+        app.rescan(|| Ok(machine().graph));
+
+        assert_eq!(
+            app.axis,
+            Axis::Role,
+            "a refresh that resets the view is not pressed twice"
+        );
+        assert_eq!(app.sort, Sort::Size);
+        assert_eq!(app.filter.facet, Some(Facet::Wanted));
+        assert!(app.collapsed.contains("wanted"));
+    }
+
+    #[test]
+    fn a_failed_rescan_leaves_the_previous_answer_standing() {
+        let mut app = machine();
+        let before = app.rows.len();
+        app.rescan(|| Err("brew fell over".to_owned()));
+        assert_eq!(
+            app.rows.len(),
+            before,
+            "a worse machine is not better than a stale one"
+        );
+        assert_eq!(app.failure.as_deref(), Some("brew fell over"));
+        assert!(!app.scanning, "it must not be left looking busy");
+    }
+
+    #[test]
+    fn a_rescan_that_works_clears_the_previous_failure() {
+        let mut app = machine();
+        app.rescan(|| Err("transient".to_owned()));
+        app.rescan(|| Ok(machine().graph));
+        assert!(app.failure.is_none());
+    }
+
+    #[test]
+    fn a_rescan_moves_the_clock_forward() {
+        let mut app = machine();
+        let before = app.scanned;
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        app.rescan(|| Ok(machine().graph));
+        assert!(
+            app.scanned > before,
+            "otherwise it still reports the old freshness"
+        );
     }
 
     fn names(app: &App) -> Vec<String> {
@@ -541,7 +631,6 @@ mod tests {
     #[test]
     fn a_scan_in_flight_says_so_rather_than_reporting_a_stale_time() {
         let mut app = machine();
-        app.scanned_ago = 600;
         app.scanning = true;
         assert_eq!(app.freshness(), "scanning");
     }

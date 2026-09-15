@@ -7,11 +7,9 @@
 use std::io::{self, IsTerminal as _, Write as _};
 use std::process::ExitCode;
 
-use yoghurt::model::fact::Source as _;
-use yoghurt::source::taxonomy::{self, Subject};
+use yoghurt::survey::survey;
 use yoghurt::view::row::{Axis, Facet, Sort};
 use yoghurt::view::{app::App, plain, run, testkit};
-use yoghurt::{Applications, Cargo, Config, Graph, Homebrew, Rustup, Walk};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -211,57 +209,6 @@ fn version() -> String {
         format!("yoghurt {VERSION}\n")
     } else {
         format!("yoghurt {VERSION} ({COMMIT})\n")
-    }
-}
-
-/// Read every source and assemble the machine.
-fn survey() -> Result<Graph, String> {
-    // The walk is ground truth and runs first; the adapters lay their claims
-    // against it. A source that is not installed contributes nothing, which is
-    // not a failure.
-    let walk = Walk::from_environment();
-    let mut facts = walk.scan().map_err(|e| e.to_string())?;
-
-    let sources: Vec<Box<dyn yoghurt::model::fact::Source>> = [
-        Homebrew::from_environment().map(|s| Box::new(s) as Box<dyn yoghurt::model::fact::Source>),
-        Cargo::from_environment().map(|s| Box::new(s) as Box<dyn yoghurt::model::fact::Source>),
-        Rustup::from_environment().map(|s| Box::new(s) as Box<dyn yoghurt::model::fact::Source>),
-        Some(Box::new(Applications::from_environment()) as Box<dyn yoghurt::model::fact::Source>),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-
-    for source in sources {
-        facts.extend(source.scan().map_err(|e| e.to_string())?);
-    }
-    let graph = Graph::from_facts(facts.clone());
-
-    // Only if somebody switched it on. Nothing above this line touches the
-    // network, and this is the only thing that ever would.
-    let config = Config::load()?;
-    if !config.taxonomy.available() {
-        return Ok(graph);
-    }
-    let subjects: Vec<Subject> = graph
-        .packages()
-        .map(|(id, package)| Subject {
-            id: id.clone(),
-            name: id.name.clone(),
-            describes: package.describes.clone(),
-        })
-        .collect();
-    match taxonomy::classify(&config.taxonomy, &subjects) {
-        Ok(labels) => {
-            facts.extend(labels);
-            Ok(Graph::from_facts(facts))
-        }
-        // A classification that fails is a missing label, never a missing
-        // machine. Fall back to what was observed.
-        Err(error) => {
-            eprintln!("yoghurt: {error}");
-            Ok(graph)
-        }
     }
 }
 

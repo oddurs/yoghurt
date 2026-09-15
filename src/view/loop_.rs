@@ -5,7 +5,7 @@
 //! that the freshness in the header keeps counting up while nobody types.
 
 use std::io;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -24,11 +24,8 @@ const TICK: Duration = Duration::from_millis(250);
 /// read from.
 pub fn run(mut app: App) -> io::Result<()> {
     let mut screen = Screen::open()?;
-    let started = Instant::now();
 
     while !app.quit {
-        app.scanned_ago = started.elapsed().as_secs();
-
         // The list occupies everything between the two header lines, the rule
         // and the footer.
         let height = usize::from(screen.area()?.height).saturating_sub(4);
@@ -98,6 +95,7 @@ pub fn handle(app: &mut App, key: KeyEvent, page: usize) {
         KeyCode::End => app.move_by(isize::MAX),
         KeyCode::Char('g') => app.cycle_axis(),
         KeyCode::Char('s') => app.cycle_sort(),
+        KeyCode::Char('r') => app.rescan(crate::survey::survey),
         KeyCode::Char('S') => app.reverse_sort(),
         KeyCode::Char(' ') | KeyCode::Enter => app.toggle_group(),
         _ => {}

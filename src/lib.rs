@@ -14,6 +14,7 @@
 pub mod config;
 pub mod model;
 pub mod source;
+pub mod survey;
 pub mod view;
 
 pub use config::Config;
