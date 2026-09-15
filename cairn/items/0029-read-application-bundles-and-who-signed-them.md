@@ -2,12 +2,12 @@
 id: 29
 title: Read application bundles and who signed them
 type: feature
-status: backlog
+status: done
 milestone: v0.2
 depends_on:
 - 24
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p0
 effort: m
 area: source
@@ -15,20 +15,23 @@ area: source
 
 ## Problem
 
-46 applications, 10 of which Homebrew installed as casks. The other 36 came from
-somewhere, and right now that somewhere is unknowable.
+Application bundles needed reading: name, version, and who shipped them.
 
-## Proposal
+## Superseded by 0073
 
-Read `Info.plist` for bundle identifier, version and minimum system version, and
-the signing authority for who shipped it. Use whichever methods the spike ranked
-as affordable. An app Homebrew already claims as a cask is not reported twice —
-the graph reconciles them by artifact path.
+Written before the scale of the problem was measured. 0073 covers everything
+here and more: it reads `Info.plist` for version and bundle identifier, reads
+the `codesign` authority for the vendor, and treats a Mac App Store receipt as a
+*source* rather than as metadata — which this item did not anticipate and which
+is the reason 10 applications stopped being orphans rather than merely being
+labelled.
+
+Closed rather than dropped: the work was done, under a different number.
 
 ## Acceptance criteria
 
-- [ ] Every bundle carries a name, version and bundle identifier
-- [ ] The signing authority is shown where it exists
-- [ ] A cask-installed app is one node, owned by Homebrew, not two
-- [ ] An unsigned or damaged bundle is reported as such rather than skipped
-- [ ] Reading 46 bundles costs under 200ms
+- [x] Every bundle carries a name, version and bundle identifier
+- [x] The signing authority is shown where it exists
+- [x] A cask-installed app is one node, owned by Homebrew, not two
+- [x] An unsigned or damaged bundle is reported as such rather than skipped
+- [x] Reading 46 bundles costs under 200ms

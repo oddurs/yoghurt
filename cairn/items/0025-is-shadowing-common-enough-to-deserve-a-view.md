@@ -2,12 +2,13 @@
 id: 25
 title: Is shadowing common enough to deserve a view?
 type: spike
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 13
 created: 2026-09-13
-updated: 2026-09-14
+updated: 2026-09-15
 priority: p0
 effort: s
 area: path
@@ -42,6 +43,24 @@ Timebox: half a day. The answer is the count, the breakdown, and a decision.
 
 ## Answer
 
-## 2026-09-14
+**Yes, but a third of it is noise, and the view should say which.**
 
-Early evidence from 0013 on this machine: 26 contested command names out of 2178. Real conflicts (bash: homebrew beats /bin/bash; docker: /usr/local/bin beats orbstack) are mixed with noise (fzf beating /opt/homebrew/opt/fzf/bin/fzf, which is the same package reached through Homebrew's own opt symlink). The spike should count real conflicts separately from a package shadowing itself.
+Measured on this machine: **26 contested names out of 2178 commands.** The split
+matters more than the count.
+
+*Real conflicts*, where the winner is a different piece of software:
+`bash` — Homebrew's 5.3 beats `/bin/bash` 3.2; `docker` and its two helpers —
+`/usr/local/bin` beats OrbStack's; `ruby`, `python3` — Homebrew beats the system.
+
+*Noise*, where a package shadows itself: `fzf`, `fzf-tmux`, `fzf-preview.sh`
+reached both directly and through Homebrew's own `opt` symlink. Same file, two
+paths.
+
+So v0.3 proceeds, with one requirement the original design did not have: a
+contest whose providers resolve to the **same file** is not a contest and must
+not be listed. That alone removes roughly a third of the 26 here.
+
+The count is also lower than the design assumed, which said "perhaps fifteen" of
+592. It is 26 of 2178 — a smaller fraction of a much larger set, and still
+enough to be worth a view, because the ones that are real are exactly the ones
+that bite.

@@ -2,12 +2,13 @@
 id: 24
 title: How do you identify a binary nobody claims?
 type: spike
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 10
 created: 2026-09-13
-updated: 2026-09-14
+updated: 2026-09-15
 priority: p0
 effort: m
 area: source
@@ -43,6 +44,27 @@ Timebox: one day. The answer is a ranked list of methods with hit rates and cost
 
 ## Answer
 
-## 2026-09-14
+**Yes, for 43 of 44.** Measured on this machine before 0073 was written:
 
-Measured on this machine, ahead of the spike: 44 apps in /Applications — 10 carry Contents/_MASReceipt (Mac App Store), 32 are Developer ID signed with the vendor named in the codesign authority (Figma Inc., Running with Crayons Ltd, Mitchell Hashimoto), 1 is signed by Apple, and exactly 1 is anonymous. pkgutil --pkgs additionally lists 105 installer receipts, each with an install date and file list. So 43 of 44 unclaimed apps are identifiable and 'unclaimed' is yoghurt's ignorance rather than the machine's. kMDItemWhereFroms was absent on every app tested and is not worth relying on.
+| signal | apps | what it proves |
+|---|---|---|
+| `Contents/_MASReceipt` | 10 | the App Store installed it — a package manager |
+| `codesign` authority | 32 | the vendor that shipped it, by name |
+| Apple's own signature | 1 | part of the system |
+| nothing | 1 | genuinely anonymous |
+
+`pkgutil --pkgs` additionally lists 105 installer receipts, each with an install
+date and a file list, so a `.pkg` install is attributable.
+
+Ranked by cost as well as hit rate: the receipt is a `stat`, `codesign` is one
+subprocess **per bundle** and must never be run per file — 45 bundles is 0.8
+seconds and 3000 artifacts would be a minute.
+
+`kMDItemWhereFroms` was absent on every application tested and is not worth
+relying on.
+
+`go version -m` reads the module path out of a Go binary and is the equivalent
+trick for that ecosystem; it is used in 0028 rather than here.
+
+Implemented in 0073, which took unclaimed from 154 to 72 and left no application
+among them.

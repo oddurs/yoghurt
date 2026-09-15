@@ -8,7 +8,7 @@ depends_on:
 - 16
 - 37
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p0
 effort: m
 area: path
@@ -35,3 +35,7 @@ sort to the top and wrapper-script noise sorts to the bottom.
 - [ ] Version conflicts rank above same-version duplicates
 - [ ] Clicking the winner or a loser opens detail on that one
 - [ ] An uncontested machine shows a sentence saying so, not an empty pane
+
+## 2026-09-15
+
+Spike 0025 measured 26 contested names of 2178 and found a third are noise: fzf, fzf-tmux and fzf-preview.sh appear twice because Homebrew's own opt symlink resolves to the same file. A contest whose providers resolve to the same file is not a contest and must not be listed.
