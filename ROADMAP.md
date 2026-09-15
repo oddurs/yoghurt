@@ -4,7 +4,7 @@
 
 ## v0.1 — See it
 
-`#########·` 82% · 23 of 28 done · due 2026-10-20
+`#########·` 86% · 24 of 28 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
@@ -14,7 +14,6 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [ ] `0019` Drive every one of those with the mouse <sup>feature · p0 · mouse</sup>
 - [ ] `0022` Say macOS, and make CI say so too <sup>chore · p1 · packaging</sup>
 - [ ] `0023` Rewrite the README around what it shows <sup>docs · p1 · docs</sup>
-- [ ] `0070` The commit-msg hook rejects the word regenerated <sup>bug · p2 · packaging</sup>
 
 ### done
 
@@ -35,6 +34,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0042` Sort by any column <sup>feature · p1 · list</sup>
 - [x] `0068` Correct the claims the Homebrew spike invalidated <sup>chore · p0 · docs</sup>
 - [x] `0069` Organize the crate into model, sources and interface <sup>chore · p1 · runtime</sup>
+- [x] `0070` The commit-msg hook rejects the word regenerated <sup>bug · p2 · packaging</sup>
 - [x] `0071` Filtering never matches a command a package provides <sup>bug · p1 · filter</sup>
 - [x] `0072` Group the list by what a thing is <sup>feature · p1 · list</sup>
 - [x] `0074` Always have a fresh install <sup>chore · p1 · packaging</sup>
