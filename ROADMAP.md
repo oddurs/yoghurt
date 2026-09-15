@@ -44,7 +44,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`###·······` 29% · 5 of 17 done · due 2026-12-01
+`###·······` 26% · 5 of 19 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
@@ -62,6 +62,8 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [ ] `0035` Adding a source is one file <sup>docs · p2 · docs</sup>
 - [ ] `0036` Test every adapter against a fixture tree <sup>chore · p0 · testing</sup>
 - [ ] `0058` Report a scan that only partly worked <sup>feature · p0 · scan</sup>
+- [ ] `0080` Rescan without leaving <sup>feature · p1 · scan</sup>
+- [ ] `0081` Find what is out of date, for every source <sup>feature · p1 · source</sup>
 
 ### done
 
@@ -73,7 +75,7 @@ Every package manager on the machine, not just Homebrew — and it opens
 
 ## v0.3 — Contention
 
-`··········` 0% · 0 of 7 done · due 2027-01-12
+`··········` 0% · 0 of 9 done · due 2027-01-12
 
 The Path view: which of the 592 binaries on your PATH actually wins when you
 
@@ -86,6 +88,8 @@ The Path view: which of the 592 binaries on your PATH actually wins when you
 - [ ] `0043` Explain every key and every click without leaving <sup>feature · p1 · chrome</sup>
 - [ ] `0044` Come back to where you were <sup>feature · p2 · config</sup>
 - [ ] `0045` Let the machine's owner define their own facets <sup>feature · p2 · config</sup>
+- [ ] `0063` Mark items and act on a set of them <sup>feature · p2 · list</sup>
+- [ ] `0082` Upgrade what is out of date <sup>feature · p1 · cli</sup>
 
 ## v0.4 — The chart
 
@@ -122,14 +126,13 @@ No new surface. The version somebody who is not Oddur can install in one
 
 ## later — Someday
 
-`··········` 0% · 0 of 6 done
+`··········` 0% · 0 of 5 done
 
 Good ideas that are not on the path to v1.0. Things go here instead of being
 
 ### backlog
 
 - [ ] `0062` Support Linux <sup>feature · p2 · source</sup>
-- [ ] `0063` Mark items and act on a set of them <sup>feature · p3 · list</sup>
 - [ ] `0064` Show when something was last used <sup>feature · p3 · graph</sup>
 - [ ] `0065` Notice changes without being asked <sup>feature · p3 · scan</sup>
 - [ ] `0066` Wear a theme the terminal already has <sup>feature · p3 · theme</sup>
