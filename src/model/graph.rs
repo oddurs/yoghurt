@@ -31,6 +31,9 @@ pub struct Package {
     pub installed_at: Option<SystemTime>,
     /// Whether a newer version is published.
     pub outdated: bool,
+    /// Whether anybody looked. Without this, "current" and "nobody asked" are
+    /// the same thing.
+    pub checked: bool,
     /// That newer version, where the source names one.
     pub latest: Option<String>,
     /// Paths this package put on disk.
@@ -163,9 +166,13 @@ impl Graph {
                 Fact::Labelled { package, label } => {
                     graph.packages.entry(package).or_default().labelled = Some(label);
                 }
+                Fact::UpToDate { package } => {
+                    graph.packages.entry(package).or_default().checked = true;
+                }
                 Fact::Outdated { package, latest } => {
                     let entry = graph.packages.entry(package).or_default();
                     entry.outdated = true;
+                    entry.checked = true;
                     if latest.is_some() {
                         entry.latest = latest;
                     }

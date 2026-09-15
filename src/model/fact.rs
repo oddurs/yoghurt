@@ -173,6 +173,17 @@ pub enum Fact {
         label: String,
     },
 
+    /// Somebody looked, and this is the newest there is.
+    ///
+    /// Distinct from the absence of [`Fact::Outdated`], which only means nobody
+    /// asked. "Current" and "not checked" look identical without this, and 75
+    /// packages on a real machine were in the second state while appearing to
+    /// be in the first.
+    UpToDate {
+        /// Which package.
+        package: PackageId,
+    },
+
     /// A newer version than the installed one is published.
     Outdated {
         /// Which package.
@@ -241,6 +252,23 @@ pub trait Source {
     /// source that is simply not installed is not an error: it returns no
     /// facts.
     fn scan(&self) -> Result<Vec<Fact>, ScanError>;
+
+    /// What is newer than what is installed.
+    ///
+    /// Separate from [`Source::scan`] because for most sources this is a
+    /// network round trip, and yoghurt does not touch the network unless it was
+    /// asked to. Called only when somebody asks for it.
+    ///
+    /// The default is to say nothing, which leaves a package reading as "not
+    /// checked" rather than falsely as "current".
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ScanError`] when the check was attempted and failed. Being
+    /// unable to check is never a reason to change what is already known.
+    fn updates(&self) -> Result<Vec<Fact>, ScanError> {
+        Ok(Vec::new())
+    }
 }
 
 #[cfg(test)]

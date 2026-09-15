@@ -44,7 +44,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`####······` 32% · 6 of 19 done · due 2026-12-01
+`####······` 37% · 7 of 19 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
@@ -62,7 +62,6 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [ ] `0035` Adding a source is one file <sup>docs · p2 · docs</sup>
 - [ ] `0036` Test every adapter against a fixture tree <sup>chore · p0 · testing</sup>
 - [ ] `0058` Report a scan that only partly worked <sup>feature · p0 · scan</sup>
-- [ ] `0081` Find what is out of date, for every source <sup>feature · p1 · source</sup>
 
 ### done
 
@@ -72,6 +71,7 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [x] `0078` Read what Homebrew already says a package is for <sup>feature · p1 · source</sup>
 - [x] `0079` Classify packages through OpenRouter, strictly opt in <sup>feature · p3 · source</sup>
 - [x] `0080` Rescan without leaving <sup>feature · p1 · scan</sup>
+- [x] `0081` Find what is out of date, for every source <sup>feature · p1 · source</sup>
 
 ## v0.3 — Contention
 

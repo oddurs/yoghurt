@@ -11,6 +11,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 
 use serde::Deserialize;
 
@@ -112,9 +113,77 @@ impl Origin {
     }
 }
 
+impl Cargo {
+    /// What the manifest says is installed.
+    fn installed(&self) -> Result<Vec<(PackageId, String, Origin)>, ScanError> {
+        let manifest = self.home.join(".crates2.json");
+        let Ok(text) = fs::read_to_string(&manifest) else {
+            return Ok(Vec::new());
+        };
+        let parsed: Crates2 = serde_json::from_str(&text).map_err(|e| {
+            ScanError::new(Self::NAME, format!("parsing {}: {e}", manifest.display()))
+        })?;
+        Ok(parsed
+            .installs
+            .keys()
+            .filter_map(|key| split_key(key))
+            .map(|(name, version, origin)| (PackageId::new(Self::NAME, name), version, origin))
+            .collect())
+    }
+}
+
+/// The newest stable version crates.io has.
+///
+/// Through `curl`, for the same reason the taxonomy is: no TLS stack in the
+/// binary for something most runs never do.
+fn newest_on_crates_io(name: &str) -> Option<String> {
+    let output = Command::new("curl")
+        .args(["--silent", "--max-time", "10", "-H", "User-Agent: yoghurt"])
+        .arg(format!("https://crates.io/api/v1/crates/{name}"))
+        .output()
+        .ok()?;
+    let body: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+    body["crate"]["max_stable_version"]
+        .as_str()
+        .map(ToOwned::to_owned)
+}
+
 impl Source for Cargo {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+
+    /// Ask crates.io what the newest published version is.
+    ///
+    /// One request per crate, because crates.io has no way to ask about
+    /// several at once. Twenty-one crates is twenty-one round trips and a few
+    /// seconds, which is why this never runs unless somebody asked for it.
+    ///
+    /// A crate installed from a path or a git repository is skipped: there is
+    /// no registry version to compare against, and reporting it as current
+    /// would be a guess dressed as a fact.
+    fn updates(&self) -> Result<Vec<Fact>, ScanError> {
+        let installed = self.installed()?;
+        let mut facts = Vec::new();
+        for (id, version, origin) in installed {
+            if origin != Origin::Registry {
+                continue;
+            }
+            let Some(newest) = newest_on_crates_io(&id.name) else {
+                // Unreachable or unknown: leave it reading as unchecked rather
+                // than claiming it is current.
+                continue;
+            };
+            if newest == version {
+                facts.push(Fact::UpToDate { package: id });
+            } else {
+                facts.push(Fact::Outdated {
+                    package: id,
+                    latest: Some(newest),
+                });
+            }
+        }
+        Ok(facts)
     }
 
     fn scan(&self) -> Result<Vec<Fact>, ScanError> {
@@ -170,6 +239,10 @@ impl Source for Cargo {
 pub struct Rustup {
     home: PathBuf,
     cargo_bin: PathBuf,
+    /// How to ask rustup what is newer. Injected so tests never run it: the
+    /// answer depends on the machine, which would make the suite depend on it
+    /// too.
+    check: fn() -> Option<String>,
 }
 
 impl Rustup {
@@ -183,21 +256,67 @@ impl Rustup {
             .map(PathBuf::from)
             .or_else(|| home_dir().map(|h| h.join(".rustup")))?;
         let cargo_bin = cargo_home()?.join("bin");
-        home.join("toolchains")
-            .is_dir()
-            .then_some(Self { home, cargo_bin })
+        home.join("toolchains").is_dir().then_some(Self {
+            home,
+            cargo_bin,
+            check: rustup_check,
+        })
     }
 
     /// Rustup rooted somewhere else. Tests point this at a fixture tree.
     #[must_use]
     pub fn new(home: PathBuf, cargo_bin: PathBuf) -> Self {
-        Self { home, cargo_bin }
+        Self {
+            home,
+            cargo_bin,
+            check: rustup_check,
+        }
+    }
+
+    /// Rustup with the check answered by a stub.
+    #[must_use]
+    pub fn with_check(home: PathBuf, cargo_bin: PathBuf, check: fn() -> Option<String>) -> Self {
+        Self {
+            home,
+            cargo_bin,
+            check,
+        }
     }
 }
 
 impl Source for Rustup {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+
+    /// `rustup check` says which toolchains have something newer.
+    ///
+    /// It reaches the network itself, which is why this lives here rather than
+    /// in `scan`.
+    ///
+    /// The report names **channels** — `stable-aarch64-apple-darwin` — while
+    /// the directories on a machine may be pinned to versions. A fact about a
+    /// name that is not installed would not update a package, it would invent
+    /// one, so only what exists on disk is reported.
+    fn updates(&self) -> Result<Vec<Fact>, ScanError> {
+        let Some(report) = (self.check)() else {
+            return Ok(Vec::new());
+        };
+        let installed: Vec<String> = children(&self.home.join("toolchains"))
+            .iter()
+            .filter_map(|dir| Some(dir.file_name()?.to_str()?.to_owned()))
+            .collect();
+
+        Ok(report
+            .lines()
+            .filter_map(parse_check)
+            .filter(|fact| match fact {
+                Fact::UpToDate { package } | Fact::Outdated { package, .. } => {
+                    installed.contains(&package.name)
+                }
+                _ => false,
+            })
+            .collect())
     }
 
     fn scan(&self) -> Result<Vec<Fact>, ScanError> {
@@ -252,6 +371,36 @@ impl Source for Rustup {
         }
         Ok(facts)
     }
+}
+
+/// Ask rustup what is newer.
+fn rustup_check() -> Option<String> {
+    let output = Command::new("rustup").arg("check").output().ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// One line of `rustup check`.
+///
+/// `stable-aarch64-apple-darwin - up to date : 1.98.1 (…)` or
+/// `nightly-… - Update available : 1.100.0-nightly (…) -> 1.100.0-nightly (…)`
+fn parse_check(line: &str) -> Option<Fact> {
+    let (name, rest) = line.split_once(" - ")?;
+    let package = PackageId::new(Rustup::NAME, name.trim());
+    let rest = rest.to_lowercase();
+    if rest.starts_with("up to date") {
+        return Some(Fact::UpToDate { package });
+    }
+    if rest.starts_with("update available") {
+        // Everything after the arrow is the version being offered.
+        let latest = line
+            .rsplit_once("-> ")
+            .map(|(_, newer)| newer.trim().to_owned());
+        return Some(Fact::Outdated { package, latest });
+    }
+    None
 }
 
 fn home_dir() -> Option<PathBuf> {
@@ -429,6 +578,100 @@ mod tests {
             graph
                 .package(&PackageId::new("rustup", "stable-aarch64-apple-darwin"))
                 .is_some()
+        );
+    }
+
+    #[test]
+    fn rustup_check_is_read_line_by_line() {
+        use super::parse_check;
+        use crate::model::fact::Fact;
+
+        let current = parse_check("stable-aarch64-apple-darwin - Up to date : 1.98.1 (48a229cea)");
+        assert!(matches!(current, Some(Fact::UpToDate { .. })));
+
+        let newer = parse_check(
+            "nightly-aarch64-apple-darwin - Update available : 1.100.0-nightly (a69a63265) -> 1.100.0-nightly (574ff7d98)",
+        );
+        let Some(Fact::Outdated { package, latest }) = newer else {
+            panic!("expected an update");
+        };
+        assert_eq!(package.name, "nightly-aarch64-apple-darwin");
+        assert_eq!(latest.as_deref(), Some("1.100.0-nightly (574ff7d98)"));
+    }
+
+    /// Stands in for `rustup check`, so no test depends on the machine it runs
+    /// on. Reports one toolchain the fixture has and one it does not.
+    #[allow(clippy::unnecessary_wraps)]
+    fn stub_check() -> Option<String> {
+        Some(
+            "stable-aarch64-apple-darwin - Up to date : 1.98.1 (48a229cea)\n\
+             1.88-aarch64-apple-darwin - Update available : 1.88.0 (abc) -> 1.99.0 (def)\n"
+                .to_owned(),
+        )
+    }
+
+    #[test]
+    fn a_toolchain_rustup_reports_but_disk_does_not_have_is_not_invented() {
+        let home = Home::new("phantom");
+        let rustup = Rustup::with_check(
+            home.0.join(".rustup"),
+            home.0.join(".cargo/bin"),
+            stub_check,
+        );
+
+        let facts = rustup.updates().unwrap();
+        assert_eq!(
+            facts.len(),
+            1,
+            "only the toolchain that is installed: {facts:?}"
+        );
+        assert!(
+            matches!(&facts[0], Fact::UpToDate { package } if package.name == "stable-aarch64-apple-darwin")
+        );
+    }
+
+    #[test]
+    fn a_toolchain_that_is_installed_and_stale_is_reported_with_the_newer_version() {
+        let home = Home::new("stale");
+        fs::create_dir_all(home.0.join(".rustup/toolchains/1.88-aarch64-apple-darwin"))
+            .expect("create toolchain");
+        let rustup = Rustup::with_check(
+            home.0.join(".rustup"),
+            home.0.join(".cargo/bin"),
+            stub_check,
+        );
+
+        let facts = rustup.updates().unwrap();
+        let newer = facts.iter().find_map(|f| match f {
+            Fact::Outdated { package, latest } if package.name.starts_with("1.88") => {
+                latest.clone()
+            }
+            _ => None,
+        });
+        assert_eq!(newer.as_deref(), Some("1.99.0 (def)"));
+    }
+
+    #[test]
+    fn a_line_rustup_did_not_write_is_ignored() {
+        use super::parse_check;
+        assert!(parse_check("info: syncing channel updates").is_none());
+        assert!(parse_check("").is_none());
+    }
+
+    #[test]
+    fn checking_updates_never_runs_during_an_ordinary_scan() {
+        // The default `updates` says nothing, so a source that has not
+        // implemented it leaves its packages reading as unchecked rather than
+        // as current.
+        let home = Home::new("noupdates");
+        let facts = home.rustup().scan().unwrap();
+        assert!(
+            !facts.iter().any(|f| matches!(
+                f,
+                crate::model::fact::Fact::UpToDate { .. }
+                    | crate::model::fact::Fact::Outdated { .. }
+            )),
+            "scan must not claim to know what only the network can say"
         );
     }
 

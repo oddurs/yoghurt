@@ -96,6 +96,9 @@ pub fn handle(app: &mut App, key: KeyEvent, page: usize) {
         KeyCode::Char('g') => app.cycle_axis(),
         KeyCode::Char('s') => app.cycle_sort(),
         KeyCode::Char('r') => app.rescan(crate::survey::survey),
+        // Shifted, because it reaches the network and the unshifted key must
+        // stay the one that cannot surprise you.
+        KeyCode::Char('R') => app.rescan(crate::survey::survey_checking_updates),
         KeyCode::Char('S') => app.reverse_sort(),
         KeyCode::Char(' ') | KeyCode::Enter => app.toggle_group(),
         _ => {}
