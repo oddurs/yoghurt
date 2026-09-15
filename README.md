@@ -40,7 +40,11 @@ groundwork for — the inventory, the disk treemap, and the `PATH` resolver — 
 designed in [docs/interface.md](docs/interface.md) and planned in
 [ROADMAP.md](ROADMAP.md), but not yet built.
 
-yoghurt is macOS only and read-mostly. Reading is the default; anything that
+yoghurt supports **macOS**. It compiles on Linux and its tests pass there, but
+three of its sources — applications, the App Store, and code signatures — have
+nothing to read, so that is a portability check rather than support.
+
+yoghurt is read-mostly. Reading is the default; anything that
 changes the machine shows you the exact command first and asks you to type a
 confirmation. It never touches your shell configuration, and nothing happens
 silently.

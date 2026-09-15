@@ -11,6 +11,9 @@ repository = "https://github.com/oddurs/yoghurt"
 homepage = "https://github.com/oddurs/yoghurt"
 keywords = ["tui", "packages", "homebrew", "inventory", "cli"]
 categories = ["command-line-utilities", "development-tools"]
+# macOS is what this is built for and tested against. It compiles on Linux and
+# its tests pass there, which is a portability check rather than support: the
+# application, App Store and codesign sources have nothing to read.
 
 [dependencies]
 # Homebrew's inventory is a megabyte of nested JSON and the scan cache in 0031

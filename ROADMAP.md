@@ -4,7 +4,7 @@
 
 ## v0.1 — See it
 
-`#########·` 86% · 24 of 28 done · due 2026-10-20
+`#########·` 89% · 25 of 28 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
@@ -12,7 +12,6 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 - [ ] `0018` Answer "why is this here" in the detail pane <sup>feature · p0 · detail</sup>
 - [ ] `0019` Drive every one of those with the mouse <sup>feature · p0 · mouse</sup>
-- [ ] `0022` Say macOS, and make CI say so too <sup>chore · p1 · packaging</sup>
 - [ ] `0023` Rewrite the README around what it shows <sup>docs · p1 · docs</sup>
 
 ### done
@@ -30,6 +29,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0017` Show the inventory as a grouped list <sup>feature · p0 · list</sup>
 - [x] `0020` Make every facet in the strip a filter <sup>feature · p1 · chrome</sup>
 - [x] `0021` Print a table when stdout is not a terminal <sup>feature · p1 · cli</sup>
+- [x] `0022` Say macOS, and make CI say so too <sup>chore · p1 · packaging</sup>
 - [x] `0041` Filter by typing <sup>feature · p1 · filter</sup>
 - [x] `0042` Sort by any column <sup>feature · p1 · list</sup>
 - [x] `0068` Correct the claims the Homebrew spike invalidated <sup>chore · p0 · docs</sup>

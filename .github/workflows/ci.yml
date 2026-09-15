@@ -14,7 +14,10 @@ permissions:
 
 jobs:
   check:
-    # The package adapters are per-platform, so both targets are load-bearing.
+    # macOS is what this supports. Ubuntu is a portability check and nothing
+    # more: it proves the code still compiles and its fixtures still pass off
+    # the target platform, which catches accidental non-portability for 45
+    # seconds. A green tick here is not a support promise — see `later` 0062.
     name: check (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:

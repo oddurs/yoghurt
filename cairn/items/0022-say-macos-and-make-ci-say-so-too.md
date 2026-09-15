@@ -2,10 +2,11 @@
 id: 22
 title: Say macOS, and make CI say so too
 type: chore
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p1
 effort: s
 area: packaging
