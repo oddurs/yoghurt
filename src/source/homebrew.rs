@@ -292,6 +292,12 @@ impl Measured {
                 package: id.clone(),
                 latest: formula.versions.stable.clone(),
             });
+        } else {
+            // Homebrew reports this for everything it installed, so it is known
+            // rather than assumed.
+            facts.push(Fact::UpToDate {
+                package: id.clone(),
+            });
         }
 
         // The JSON may describe a keg that is no longer on disk, and the disk

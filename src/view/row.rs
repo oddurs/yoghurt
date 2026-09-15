@@ -179,7 +179,10 @@ impl Axis {
                 (State::Broken, _) => (0, "broken".to_owned()),
                 (_, true) => (1, "outdated".to_owned()),
                 (State::Unexplained | State::Orphan, _) => (2, "unaccounted for".to_owned()),
-                (State::Fine | State::PulledIn, _) => (3, "fine".to_owned()),
+                // Current and never-asked are different answers and must not
+                // share a group.
+                (State::Fine | State::PulledIn, _) if item.checked => (3, "current".to_owned()),
+                (State::Fine | State::PulledIn, _) => (4, "not checked".to_owned()),
             },
         }
     }
@@ -448,6 +451,10 @@ pub struct Item {
     /// something you asked for can be out of date without ceasing to be
     /// something you asked for.
     pub outdated: bool,
+    /// Whether anybody looked.
+    pub checked: bool,
+    /// The version that is available, where anything named one.
+    pub latest: Option<String>,
     /// The command names it puts on the path, so a filter can find a package by
     /// what you actually type.
     pub provides: Vec<String>,
@@ -640,6 +647,8 @@ fn items(graph: &Graph) -> Vec<Item> {
                 path,
                 installed: package.installed_at,
                 outdated: package.outdated,
+                checked: package.checked,
+                latest: package.latest.clone(),
                 provides: commands.get(id).cloned().unwrap_or_default(),
                 describes: package.describes.clone(),
                 labelled: package.labelled.clone(),
@@ -669,6 +678,8 @@ fn items(graph: &Graph) -> Vec<Item> {
                 path: Some(path.to_owned()),
                 installed: None,
                 outdated: false,
+                checked: false,
+                latest: None,
                 provides: artifact.provides.iter().cloned().collect(),
                 describes: None,
                 labelled: None,
@@ -942,7 +953,11 @@ mod tests {
             .into_iter()
             .filter(|n| n.starts_with('['))
             .collect();
-        assert_eq!(headings, vec!["[unaccounted for 1]", "[fine 2]"]);
+        assert_eq!(
+            headings,
+            vec!["[unaccounted for 1]", "[not checked 2]"],
+            "nothing has asked whether these are current, and saying `fine` would be a guess"
+        );
     }
 
     #[test]
@@ -1319,6 +1334,8 @@ mod tests {
             path: (!path.is_empty()).then(|| PathBuf::from(path)),
             installed: None,
             outdated: false,
+            checked: false,
+            latest: None,
             provides: provides.iter().map(|c| (*c).to_owned()).collect(),
             describes: None,
             labelled: None,
@@ -1383,6 +1400,44 @@ mod tests {
             .filter(|n| n.starts_with('['))
             .collect();
         assert_eq!(headings, vec!["[applications 1]", "[libraries 2]"]);
+    }
+
+    #[test]
+    fn current_and_nobody_asked_are_different_answers() {
+        let id = PackageId::new("homebrew", "ripgrep");
+        let unchecked = Graph::from_facts([
+            Fact::Package {
+                id: id.clone(),
+                version: None,
+            },
+            Fact::Wanted {
+                package: id.clone(),
+            },
+        ]);
+        let checked = Graph::from_facts([
+            Fact::Package {
+                id: id.clone(),
+                version: None,
+            },
+            Fact::Wanted {
+                package: id.clone(),
+            },
+            Fact::UpToDate { package: id },
+        ]);
+        let heading = |graph: &Graph| {
+            names(&build(
+                graph,
+                &BTreeSet::new(),
+                Axis::Health,
+                Sort::Name,
+                false,
+                &Filter::default(),
+                epoch(),
+            ))[0]
+                .clone()
+        };
+        assert_eq!(heading(&unchecked), "[not checked 1]");
+        assert_eq!(heading(&checked), "[current 1]");
     }
 
     #[test]

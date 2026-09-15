@@ -484,6 +484,8 @@ mod tests {
             path: None,
             installed: None,
             outdated: true,
+            checked: true,
+            latest: None,
             provides: Vec::new(),
             describes: None,
             labelled: None,

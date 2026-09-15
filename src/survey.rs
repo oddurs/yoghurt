@@ -16,6 +16,23 @@ use crate::{Applications, Cargo, Graph, Homebrew, Rustup, Walk};
 ///
 /// Returns a message when a source exists but could not be read.
 pub fn survey() -> Result<Graph, String> {
+    read(false)
+}
+
+/// Read every source, and ask each what is newer.
+///
+/// Separate because this is the only path that touches the network, and it runs
+/// only when somebody asked for it.
+///
+/// # Errors
+///
+/// Returns a message when a source exists but could not be read. A source that
+/// cannot be *checked* is not an error: its packages keep reading as unchecked.
+pub fn survey_checking_updates() -> Result<Graph, String> {
+    read(true)
+}
+
+fn read(check_updates: bool) -> Result<Graph, String> {
     // The walk is ground truth and runs first; the adapters lay their claims
     // against it. A source that is not installed contributes nothing, which is
     // not a failure.
@@ -32,8 +49,17 @@ pub fn survey() -> Result<Graph, String> {
     .flatten()
     .collect();
 
-    for source in sources {
+    for source in &sources {
         facts.extend(source.scan().map_err(|e| e.to_string())?);
+    }
+    if check_updates {
+        for source in &sources {
+            // Being unable to check is never a reason to change what is already
+            // known, so a failure here is dropped rather than propagated.
+            if let Ok(newer) = source.updates() {
+                facts.extend(newer);
+            }
+        }
     }
     let graph = Graph::from_facts(facts.clone());
 
