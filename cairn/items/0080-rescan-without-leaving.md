@@ -2,8 +2,9 @@
 id: 80
 title: Rescan without leaving
 type: feature
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 created: 2026-09-15
 updated: 2026-09-15
 priority: p1

@@ -43,7 +43,12 @@ pub fn draw(frame: &mut Frame, app: &App) {
 /// way as the header narrows is the totals, then the hostname.
 fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
     let width = usize::from(area.width);
-    let freshness = format!("{} ", app.freshness());
+    // A failed rescan says so where the freshness would be. Showing a time that
+    // is quietly older than it looks is the one thing this line must never do.
+    let freshness = match &app.failure {
+        Some(_) => "scan failed ".to_owned(),
+        None => format!("{} ", app.freshness()),
+    };
     let reserved = freshness.chars().count();
 
     let totals = app.totals();
@@ -361,6 +366,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ("s", "sort"),
             ("/", "find"),
             ("!", "facet"),
+            ("r", "rescan"),
             ("q", "quit"),
         ]
     };
@@ -501,6 +507,18 @@ mod tests {
             render(&app, 90, 4)[1].contains("wanted ◂"),
             "under mono, colour says nothing: {:?}",
             render(&app, 90, 4)[1]
+        );
+    }
+
+    #[test]
+    fn a_failed_scan_says_so_where_the_freshness_would_be() {
+        let mut app = machine();
+        app.failure = Some("brew fell over".to_owned());
+        let header = render(&app, 90, 4)[0].clone();
+        assert!(header.contains("scan failed"), "{header}");
+        assert!(
+            !header.contains("scanned"),
+            "a time that is quietly older than it looks is the worst thing this line can say"
         );
     }
 
