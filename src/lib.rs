@@ -11,6 +11,7 @@
 //! - [`model`] — the graph, and the questions that can be asked of it
 //! - [`view`] — projections of the graph, holding no rules of their own
 
+pub mod cache;
 pub mod config;
 pub mod model;
 pub mod source;

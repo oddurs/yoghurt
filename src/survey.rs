@@ -12,6 +12,7 @@
 //! reported honestly is worth far more than nothing reported at all.
 
 use std::thread;
+use std::time::SystemTime;
 
 use crate::config::Config;
 use crate::model::fact::{ScanError, Source};
@@ -19,12 +20,24 @@ use crate::source::taxonomy::{self, Subject};
 use crate::{Applications, Cargo, Gem, Go, Graph, Homebrew, Node, PythonTools, Rustup, Walk};
 
 /// What a scan produced, including what it could not.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Survey {
     /// The machine, as far as anybody could tell.
     pub graph: Graph,
     /// Sources that were asked and could not answer.
     pub failures: Vec<ScanError>,
+    /// When this was read. Older than now when it came from the cache.
+    pub scanned: SystemTime,
+}
+
+impl Default for Survey {
+    fn default() -> Self {
+        Self {
+            graph: Graph::default(),
+            failures: Vec::new(),
+            scanned: SystemTime::now(),
+        }
+    }
 }
 
 impl Survey {
@@ -44,6 +57,21 @@ impl Survey {
             many => Some(format!("{} sources could not be read", many.len())),
         }
     }
+}
+
+/// The last scan, if there is one, without reading anything.
+///
+/// This is what the first frame is drawn from. Three seconds is long enough
+/// that a tool which spends it before showing anything is a tool people stop
+/// opening.
+#[must_use]
+pub fn cached() -> Option<Survey> {
+    let cached = crate::cache::read()?;
+    Some(Survey {
+        graph: Graph::from_facts(cached.facts),
+        failures: Vec::new(),
+        scanned: cached.scanned,
+    })
 }
 
 /// Read every source and assemble the machine.
@@ -129,13 +157,21 @@ fn read(check_updates: bool) -> Result<Survey, String> {
         }
     });
 
+    // Saved before the taxonomy runs, so a machine read without the network is
+    // still worth keeping.
+    let scanned = SystemTime::now();
+    crate::cache::write(&facts, scanned);
     let graph = Graph::from_facts(facts.clone());
 
     // Only if somebody switched it on. Nothing above this line touches the
     // network, and this is the only thing that ever would.
     let config = Config::load()?;
     if !config.taxonomy.available() {
-        return Ok(Survey { graph, failures });
+        return Ok(Survey {
+            graph,
+            failures,
+            scanned,
+        });
     }
     let subjects: Vec<Subject> = graph
         .packages()
@@ -151,13 +187,18 @@ fn read(check_updates: bool) -> Result<Survey, String> {
             Ok(Survey {
                 graph: Graph::from_facts(facts),
                 failures,
+                scanned,
             })
         }
         // A classification that fails is a missing label, never a missing
         // machine.
         Err(error) => {
             failures.push(error);
-            Ok(Survey { graph, failures })
+            Ok(Survey {
+                graph,
+                failures,
+                scanned,
+            })
         }
     }
 }
@@ -171,6 +212,7 @@ mod tests {
         Survey {
             graph: crate::Graph::default(),
             failures: names.iter().map(|n| ScanError::new(n, "no")).collect(),
+            scanned: std::time::SystemTime::now(),
         }
     }
 

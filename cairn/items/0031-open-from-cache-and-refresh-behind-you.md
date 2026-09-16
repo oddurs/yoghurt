@@ -2,12 +2,13 @@
 id: 31
 title: Open from cache and refresh behind you
 type: feature
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 12
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p0
 effort: l
 area: scan

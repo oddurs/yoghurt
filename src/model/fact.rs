@@ -10,6 +10,8 @@
 //! artifact is a thing that happens on a real machine, so it is representable
 //! here rather than an error; reconciling them is the graph's job.
 
+use serde::{Deserialize, Serialize};
+
 use std::error::Error;
 use std::fmt;
 use std::path::PathBuf;
@@ -19,7 +21,7 @@ use std::time::SystemTime;
 ///
 /// Identity is the pair, not the name: Homebrew's `node` and npm's `node` are
 /// different things that happen to share a word.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct PackageId {
     /// The source that records it, as reported by [`Source::name`].
     pub source: String,
@@ -48,7 +50,7 @@ impl fmt::Display for PackageId {
 /// Every variant states something a source observed. Nothing here is a
 /// conclusion — "orphan", "shadowed" and "pulled in" are questions answered by
 /// the graph, not facts anybody emits.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub enum Fact {
     /// This package exists, at this version if the source knows one.
     ///
