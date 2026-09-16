@@ -1,21 +1,59 @@
 //! Reading the machine.
 //!
-//! Every source, laid against the walk that says what is actually there. Lives
-//! here rather than in `main` because the interface asks for another one every
-//! time somebody presses `r`, and a survey that only the entry point can run is
-//! a survey you can only have once.
+//! Every source, laid against the walk that says what is actually there.
+//!
+//! Sources run at once. Eight of them in sequence is the sum of eight waits —
+//! and two of those are subprocesses that spend their time blocked rather than
+//! working. Concurrently it is the slowest one, and one slow package manager
+//! stops holding up the other seven.
+//!
+//! A source that fails does not fail the scan. It is named, its error is kept,
+//! and everything else still arrives, because seven eighths of a machine
+//! reported honestly is worth far more than nothing reported at all.
+
+use std::thread;
 
 use crate::config::Config;
-use crate::model::fact::Source as _;
+use crate::model::fact::{ScanError, Source};
 use crate::source::taxonomy::{self, Subject};
 use crate::{Applications, Cargo, Gem, Go, Graph, Homebrew, Node, PythonTools, Rustup, Walk};
+
+/// What a scan produced, including what it could not.
+#[derive(Debug, Default)]
+pub struct Survey {
+    /// The machine, as far as anybody could tell.
+    pub graph: Graph,
+    /// Sources that were asked and could not answer.
+    pub failures: Vec<ScanError>,
+}
+
+impl Survey {
+    /// Whether anything went wrong.
+    #[must_use]
+    pub fn partial(&self) -> bool {
+        !self.failures.is_empty()
+    }
+
+    /// What to say about it, in one line.
+    #[must_use]
+    pub fn trouble(&self) -> Option<String> {
+        let names: Vec<&str> = self.failures.iter().map(|f| f.source_name).collect();
+        match names.as_slice() {
+            [] => None,
+            [one] => Some(format!("{one} could not be read")),
+            many => Some(format!("{} sources could not be read", many.len())),
+        }
+    }
+}
 
 /// Read every source and assemble the machine.
 ///
 /// # Errors
 ///
-/// Returns a message when a source exists but could not be read.
-pub fn survey() -> Result<Graph, String> {
+/// Returns a message only when the walk itself fails, because without ground
+/// truth there is nothing to lay claims against. Every other failure is carried
+/// in [`Survey::failures`] rather than thrown away.
+pub fn survey() -> Result<Survey, String> {
     read(false)
 }
 
@@ -26,52 +64,78 @@ pub fn survey() -> Result<Graph, String> {
 ///
 /// # Errors
 ///
-/// Returns a message when a source exists but could not be read. A source that
-/// cannot be *checked* is not an error: its packages keep reading as unchecked.
-pub fn survey_checking_updates() -> Result<Graph, String> {
+/// As [`survey`].
+pub fn survey_checking_updates() -> Result<Survey, String> {
     read(true)
 }
 
-fn read(check_updates: bool) -> Result<Graph, String> {
-    // The walk is ground truth and runs first; the adapters lay their claims
-    // against it. A source that is not installed contributes nothing, which is
-    // not a failure.
+/// Every source this machine might have.
+fn sources() -> Vec<Box<dyn Source + Send>> {
+    let mut found: Vec<Box<dyn Source + Send>> = Vec::new();
+    if let Some(brew) = Homebrew::from_environment() {
+        found.push(Box::new(brew));
+    }
+    if let Some(cargo) = Cargo::from_environment() {
+        found.push(Box::new(cargo));
+    }
+    if let Some(rustup) = Rustup::from_environment() {
+        found.push(Box::new(rustup));
+    }
+    if let Some(go) = Go::from_environment() {
+        found.push(Box::new(go));
+    }
+    found.push(Box::new(Applications::from_environment()));
+    found.push(Box::new(Node::from_environment()));
+    found.push(Box::new(Gem::from_environment()));
+    found.push(Box::new(PythonTools::from_environment()));
+    found
+}
+
+fn read(check_updates: bool) -> Result<Survey, String> {
+    // The walk is ground truth. Without it there is nothing for the adapters to
+    // lay their claims against, so this one failure is fatal where none of the
+    // others are.
     let walk = Walk::from_environment();
     let mut facts = walk.scan().map_err(|e| e.to_string())?;
+    let mut failures = Vec::new();
 
-    let sources: Vec<Box<dyn crate::model::fact::Source>> = [
-        Homebrew::from_environment().map(|s| Box::new(s) as Box<dyn crate::model::fact::Source>),
-        Cargo::from_environment().map(|s| Box::new(s) as Box<dyn crate::model::fact::Source>),
-        Rustup::from_environment().map(|s| Box::new(s) as Box<dyn crate::model::fact::Source>),
-        Some(Box::new(Applications::from_environment()) as Box<dyn crate::model::fact::Source>),
-        Some(Box::new(Node::from_environment()) as Box<dyn crate::model::fact::Source>),
-        Go::from_environment().map(|s| Box::new(s) as Box<dyn crate::model::fact::Source>),
-        Some(Box::new(Gem::from_environment()) as Box<dyn crate::model::fact::Source>),
-        Some(Box::new(PythonTools::from_environment()) as Box<dyn crate::model::fact::Source>),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
+    // Scoped threads, so nothing has to be `'static` and no handle can outlive
+    // the scan it belongs to.
+    thread::scope(|scope| {
+        let running: Vec<_> = sources()
+            .into_iter()
+            .map(|source| {
+                scope.spawn(move || {
+                    let mut found = source.scan()?;
+                    if check_updates {
+                        // Being unable to check what is newer never invalidates
+                        // what was read.
+                        if let Ok(newer) = source.updates() {
+                            found.extend(newer);
+                        }
+                    }
+                    Ok(found)
+                })
+            })
+            .collect();
 
-    for source in &sources {
-        facts.extend(source.scan().map_err(|e| e.to_string())?);
-    }
-    if check_updates {
-        for source in &sources {
-            // Being unable to check is never a reason to change what is already
-            // known, so a failure here is dropped rather than propagated.
-            if let Ok(newer) = source.updates() {
-                facts.extend(newer);
+        for handle in running {
+            match handle.join() {
+                Ok(Ok(found)) => facts.extend(found),
+                Ok(Err(error)) => failures.push(error),
+                // A source that panicked took itself down and nothing else.
+                Err(_) => failures.push(ScanError::new("unknown", "the source panicked")),
             }
         }
-    }
+    });
+
     let graph = Graph::from_facts(facts.clone());
 
     // Only if somebody switched it on. Nothing above this line touches the
     // network, and this is the only thing that ever would.
     let config = Config::load()?;
     if !config.taxonomy.available() {
-        return Ok(graph);
+        return Ok(Survey { graph, failures });
     }
     let subjects: Vec<Subject> = graph
         .packages()
@@ -84,13 +148,64 @@ fn read(check_updates: bool) -> Result<Graph, String> {
     match taxonomy::classify(&config.taxonomy, &subjects) {
         Ok(labels) => {
             facts.extend(labels);
-            Ok(Graph::from_facts(facts))
+            Ok(Survey {
+                graph: Graph::from_facts(facts),
+                failures,
+            })
         }
         // A classification that fails is a missing label, never a missing
-        // machine. Fall back to what was observed.
+        // machine.
         Err(error) => {
-            eprintln!("yoghurt: {error}");
-            Ok(graph)
+            failures.push(error);
+            Ok(Survey { graph, failures })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Survey;
+    use crate::model::fact::ScanError;
+
+    fn failed(names: &[&'static str]) -> Survey {
+        Survey {
+            graph: crate::Graph::default(),
+            failures: names.iter().map(|n| ScanError::new(n, "no")).collect(),
+        }
+    }
+
+    #[test]
+    fn a_scan_with_nothing_wrong_says_nothing() {
+        assert!(!failed(&[]).partial());
+        assert_eq!(failed(&[]).trouble(), None);
+    }
+
+    #[test]
+    fn one_failed_source_is_named() {
+        assert_eq!(
+            failed(&["homebrew"]).trouble().as_deref(),
+            Some("homebrew could not be read")
+        );
+    }
+
+    #[test]
+    fn several_failures_are_counted_rather_than_listed() {
+        assert_eq!(
+            failed(&["homebrew", "cargo", "gem"]).trouble().as_deref(),
+            Some("3 sources could not be read"),
+            "a header has no room for a list"
+        );
+    }
+
+    #[test]
+    fn a_partial_scan_is_still_a_scan() {
+        let survey = failed(&["cargo"]);
+        assert!(survey.partial(), "and it says so");
+        // The graph is whatever the other sources managed, not nothing.
+        assert_eq!(
+            survey.graph.packages().count(),
+            0,
+            "empty here only because the fixture is"
+        );
     }
 }
