@@ -40,3 +40,7 @@ and as one that must still be rejected.
 ## 2026-09-15
 
 Fixing this uncovered a second bug in the same check: the robot emoji test was written as grep '\xf0\x9f\xa4\x96' in single quotes, which searches for that literal text rather than those bytes, so it had never fired once. Both fixed, and the hook is now exercised against four messages.
+
+## 2026-09-15
+
+Second false positive of the session: the rule refused a commit body containing the npm package name @anthropic-ai/sdk. The check is a grep over prose and cannot tell a vendor's package name from a co-author trailer. Worth revisiting whether it should only inspect trailer lines and the last paragraph rather than the whole body.

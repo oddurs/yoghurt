@@ -11,6 +11,7 @@
 pub mod cargo;
 pub mod homebrew;
 pub mod macos;
+pub mod node;
 pub mod taxonomy;
 pub mod walk;
 

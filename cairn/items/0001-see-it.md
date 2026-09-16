@@ -3,9 +3,9 @@ id: 1
 key: v0.1
 title: See it
 type: milestone
-status: backlog
+status: done
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p2
 due: 2026-10-20
 ---

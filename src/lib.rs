@@ -24,4 +24,5 @@ pub use model::question::{Provenance, Resolution};
 pub use source::cargo::{Cargo, Rustup};
 pub use source::homebrew::Homebrew;
 pub use source::macos::Applications;
+pub use source::node::Node;
 pub use source::walk::Walk;
