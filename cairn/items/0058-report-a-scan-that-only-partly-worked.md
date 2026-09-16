@@ -2,12 +2,12 @@
 id: 58
 title: Report a scan that only partly worked
 type: feature
-status: backlog
+status: done
 milestone: v0.2
 depends_on:
 - 32
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p0
 effort: m
 area: scan

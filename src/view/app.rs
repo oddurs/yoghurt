@@ -108,14 +108,17 @@ impl App {
     ///
     /// A source that fails leaves the previous answer standing. A worse machine
     /// is not an improvement on a stale one.
-    pub fn rescan(&mut self, read: impl FnOnce() -> Result<Graph, String>) {
+    pub fn rescan(&mut self, read: impl FnOnce() -> Result<crate::survey::Survey, String>) {
         self.scanning = true;
         match read() {
-            Ok(graph) => {
-                self.graph = graph;
+            Ok(survey) => {
+                // A partial answer replaces a whole one, and says so.
+                self.failure = survey.trouble();
+                self.graph = survey.graph;
                 self.scanned = std::time::SystemTime::now();
-                self.failure = None;
             }
+            // Only the walk failing gets here, and then there is no machine to
+            // show at all, so the previous answer stands.
             Err(message) => self.failure = Some(message),
         }
         self.scanning = false;
@@ -565,7 +568,12 @@ mod tests {
         app.collapsed.insert("wanted".to_owned());
         app.rebuild();
 
-        app.rescan(|| Ok(machine().graph));
+        app.rescan(|| {
+            Ok(crate::survey::Survey {
+                graph: machine().graph,
+                failures: Vec::new(),
+            })
+        });
 
         assert_eq!(
             app.axis,
@@ -592,10 +600,32 @@ mod tests {
     }
 
     #[test]
+    fn a_partial_rescan_replaces_the_machine_and_says_what_was_missed() {
+        let mut app = machine();
+        app.rescan(|| {
+            Ok(crate::survey::Survey {
+                graph: machine().graph,
+                failures: vec![crate::model::fact::ScanError::new("cargo", "no")],
+            })
+        });
+        assert_eq!(
+            app.failure.as_deref(),
+            Some("cargo could not be read"),
+            "seven eighths of a machine is worth having, and worth labelling"
+        );
+        assert!(!app.rows.is_empty(), "the rest of it still arrived");
+    }
+
+    #[test]
     fn a_rescan_that_works_clears_the_previous_failure() {
         let mut app = machine();
         app.rescan(|| Err("transient".to_owned()));
-        app.rescan(|| Ok(machine().graph));
+        app.rescan(|| {
+            Ok(crate::survey::Survey {
+                graph: machine().graph,
+                failures: Vec::new(),
+            })
+        });
         assert!(app.failure.is_none());
     }
 
@@ -604,7 +634,12 @@ mod tests {
         let mut app = machine();
         let before = app.scanned;
         std::thread::sleep(std::time::Duration::from_millis(5));
-        app.rescan(|| Ok(machine().graph));
+        app.rescan(|| {
+            Ok(crate::survey::Survey {
+                graph: machine().graph,
+                failures: Vec::new(),
+            })
+        });
         assert!(
             app.scanned > before,
             "otherwise it still reports the old freshness"

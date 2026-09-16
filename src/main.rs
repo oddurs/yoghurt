@@ -175,9 +175,17 @@ fn run(action: Action) -> Result<String, String> {
     match action {
         Action::Help => Ok(USAGE.to_owned()),
         Action::Version => Ok(version()),
-        Action::Survey => Ok(plain::table(&survey()?)),
+        Action::Survey => {
+            let read = survey()?;
+            // A table that is quietly missing a source is worse than one that
+            // says so, and stderr keeps the table itself pipeable.
+            if let Some(trouble) = read.trouble() {
+                eprintln!("yoghurt: {trouble}");
+            }
+            Ok(plain::table(&read.graph))
+        }
         Action::Interface => {
-            run::run(App::new(survey()?)).map_err(|e| e.to_string())?;
+            run::run(App::new(survey()?.graph)).map_err(|e| e.to_string())?;
             Ok(String::new())
         }
         Action::Screenshot(shot) => Ok(screenshot(&shot)?),
@@ -190,7 +198,7 @@ fn run(action: Action) -> Result<String, String> {
 /// what the interface draws rather than an approximation of it. No terminal is
 /// involved, so this works over a pipe and in CI.
 fn screenshot(shot: &Shot) -> Result<String, String> {
-    let mut app = App::new(survey()?);
+    let mut app = App::new(survey()?.graph);
     if let Some(axis) = shot.group {
         app.axis = axis;
     }
