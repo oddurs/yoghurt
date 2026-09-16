@@ -25,4 +25,5 @@ pub use source::cargo::{Cargo, Rustup};
 pub use source::homebrew::Homebrew;
 pub use source::macos::Applications;
 pub use source::node::Node;
+pub use source::tools::{Gem, Go, PythonTools};
 pub use source::walk::Walk;
