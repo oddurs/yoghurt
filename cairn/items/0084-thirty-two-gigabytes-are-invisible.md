@@ -2,8 +2,9 @@
 id: 84
 title: Thirty-two gigabytes are invisible
 type: bug
-status: backlog
+status: done
 milestone: v0.3
+assignee: Oddur Sigurdsson
 created: 2026-09-15
 updated: 2026-09-15
 priority: p0

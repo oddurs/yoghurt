@@ -26,7 +26,7 @@ use std::time::{Duration, SystemTime};
 use serde::Deserialize;
 
 use crate::model::fact::{Fact, PackageId, ScanError, Source};
-use crate::source::{children, size_of};
+use crate::source::{children, size_of_each};
 
 /// Homebrew, as a source of facts.
 pub struct Homebrew {
@@ -233,15 +233,33 @@ impl Homebrew {
     /// This is the expensive half — 160,000 entries and 1.8 seconds on the
     /// machine this was written against — so it runs while `brew info` does.
     fn measure(root: &Path) -> Vec<Measured> {
-        children(root)
+        // Every version directory of every package, flattened, so all 262 kegs
+        // are measured at once rather than one package at a time. Sequentially
+        // this walk was 1.8 seconds over 160,000 files and the single largest
+        // part of the whole scan.
+        let named: Vec<(String, Vec<PathBuf>)> = children(root)
             .into_iter()
             .filter_map(|dir| {
                 let name = dir.file_name()?.to_str()?.to_owned();
-                let versions: Vec<(PathBuf, u64)> = children(&dir)
+                let versions = children(&dir);
+                (!versions.is_empty()).then_some((name, versions))
+            })
+            .collect();
+
+        let flat: Vec<PathBuf> = named.iter().flat_map(|(_, v)| v.iter().cloned()).collect();
+        let mut sizes = size_of_each(&flat).into_iter();
+
+        named
+            .into_iter()
+            .map(|(name, versions)| Measured {
+                name,
+                versions: versions
                     .into_iter()
-                    .map(|v| (v.clone(), size_of(&v)))
-                    .collect();
-                (!versions.is_empty()).then_some(Measured { name, versions })
+                    .map(|path| {
+                        let bytes = sizes.next().unwrap_or(0);
+                        (path, bytes)
+                    })
+                    .collect(),
             })
             .collect()
     }

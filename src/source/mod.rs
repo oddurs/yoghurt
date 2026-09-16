@@ -34,6 +34,25 @@ pub(crate) fn children(dir: &Path) -> Vec<PathBuf> {
     found
 }
 
+/// Measure several directories at once.
+///
+/// Each is an independent walk over thousands of files, and the work is waiting
+/// on the filesystem rather than computing anything — so doing them in parallel
+/// costs threads and saves seconds. 44 application bundles take 2.6 seconds one
+/// at a time.
+pub(crate) fn size_of_each(paths: &[PathBuf]) -> Vec<u64> {
+    std::thread::scope(|scope| {
+        let running: Vec<_> = paths
+            .iter()
+            .map(|path| scope.spawn(move || size_of(path)))
+            .collect();
+        running
+            .into_iter()
+            .map(|handle| handle.join().unwrap_or(0))
+            .collect()
+    })
+}
+
 /// Bytes under a directory, following nothing.
 ///
 /// A keg is a few hundred files, so this is a plain recursive walk rather than
