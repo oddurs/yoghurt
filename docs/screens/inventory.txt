@@ -1,0 +1,14 @@
+ yoghurt  Oddurs-MacBook-Pro   300 packages · 5 sources · 12G              scanned just now 
+ 163 wanted   133 pulled in   45 outdated   4 unexplained   2 broken                        
+─ by role · size↓ ──────────────────────────────────────────────────────────────────────────
+ ▾ wanted                                                                        163  3.6G  
+  ● openjdk                                                     26.0.2.1    wanted    379M  
+  ● vercel                                                       59.16.0    wanted    283M  
+  ↑ pandoc                                                           3.9  outdated    263M  
+  ● go                                                            1.27.1    wanted    228M  
+  ● zig                                                         0.16.0_1    wanted    197M  
+  ↑ awscli                                                       2.34.30  outdated    156M  
+  ● mise                                                        2026.9.6    wanted    152M  
+  ● shims                                                              -    wanted    151M  
+  ● node                                                          26.8.2    wanted    141M  
+ ↑↓ move  space fold  g group  s sort  / find  ! facet  ↵ detail  r rescan  q quit          

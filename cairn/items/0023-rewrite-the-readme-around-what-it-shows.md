@@ -2,12 +2,13 @@
 id: 23
 title: Rewrite the README around what it shows
 type: docs
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 17
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p1
 effort: s
 area: docs

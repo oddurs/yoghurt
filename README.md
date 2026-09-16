@@ -7,69 +7,114 @@ See what is installed on this machine, and where it came from.
 
 Homebrew knows about Homebrew. `npm` knows about `npm`. Nothing knows about all
 of it at once, so the honest answer to "what is on this laptop" is a shrug and
-five commands whose output does not line up. yoghurt is one inventory across
-every package manager you actually use — a chart of the machine rather than a
-list per tool.
+five commands whose output does not line up.
 
-## What it does today
-
-One command, one table. Detection is filesystem-only, so it returns instantly
-and never touches the network:
-
-```console
-$ yoghurt
-  SOURCE          ITEMS  WHERE
-  homebrew          169  /opt/homebrew/Cellar
-  homebrew casks     10  /opt/homebrew/Caskroom
-  cargo              22  ~/.cargo/bin
-  rustup              7  ~/.rustup/toolchains
-  go                  1  ~/go/bin
-  npm global          3  /opt/homebrew/lib/node_modules
-  applications       44  /Applications
-  applications         1  ~/Applications
-  total             257
+```
+ yoghurt  Oddurs-MacBook-Pro   300 packages · 5 sources · 12G              scanned just now 
+ 163 wanted   133 pulled in   45 outdated   4 unexplained   2 broken                        
+─ by role · size↓ ──────────────────────────────────────────────────────────────────────────
+ ▾ wanted                                                                        163  3.6G  
+  ● openjdk                                                     26.0.2.1    wanted    379M  
+  ● vercel                                                       59.16.0    wanted    283M  
+  ↑ pandoc                                                           3.9  outdated    263M  
+  ● go                                                            1.27.1    wanted    228M  
+  ● zig                                                         0.16.0_1    wanted    197M  
+  ↑ awscli                                                       2.34.30  outdated    156M  
+  ● mise                                                        2026.9.6    wanted    152M  
+  ● shims                                                              -    wanted    151M  
+  ● node                                                          26.8.2    wanted    141M  
+ ↑↓ move  space fold  g group  s sort  / find  ! facet  ↵ detail  r rescan  q quit
 ```
 
-It finds Homebrew formulae and casks, `cargo install` binaries, rustup
-toolchains, `go install` binaries, global npm packages, pipx and uv tools, and
-macOS application bundles. A source that is not installed is left out rather
-than shown as zero.
+Three numbers on that screen are the reason this exists. **163 things you asked
+for. 133 that arrived underneath something else. 4 that nothing you installed
+needs at all** — the residue of uninstalls that did not finish, which no package
+manager can see on its own because each of them only knows its own half.
 
-That is the whole of it so far. The mouse-first terminal interface this is
-groundwork for — the inventory, the disk treemap, and the `PATH` resolver — is
-designed in [docs/interface.md](docs/interface.md) and planned in
-[ROADMAP.md](ROADMAP.md), but not yet built.
+## Why is this here?
+
+Press `↵` on anything and it answers the question a flat list cannot:
+
+```
+ yoghurt  Oddurs-MacBook-Pro   300 packages · 5 sources · 12G                          scanned just now 
+ 163 wanted   133 pulled in   45 outdated   4 unexplained   2 broken                                    
+─ /glib · by source ────────────────────────────────────────────────────────────────────────────────────
+ ▾ homebrew                                           2  159M   glib                                    
+  ◐ glib                                               2.88.3  ◐ 2.88.3 · homebrew · 151M               
+  ◐ libtool                                             2.6.2  Core application library for C           
+                                                                                                        
+                                                                WHY ──────────────────────────────────  
+                                                                 glib                                   
+                                                                   └ epubcheck  ← you installed this    
+                                                                                                        
+                                                                FACTS ────────────────────────────────  
+ ↑↓ move  space fold  g group  s sort  / find  ! facet  ↵ detail  r rescan  q quit
+```
+
+`glib` is 151 MB you never asked for. It is here because `epubcheck` is, and
+that is the thing you actually installed. No package manager answers that in one
+step.
+
+## What it reads
+
+Homebrew formulae and casks, `cargo install` binaries, rustup toolchains, and
+every application bundle — including which ones came from the Mac App Store and
+which vendor signed the rest.
+
+Anything left over is reported as unclaimed, honestly, rather than hidden. On
+the machine above that is two binaries `cargo` never recorded installing.
+
+## Install
+
+```sh
+brew install oddurs/tap/yoghurt   # once the tap exists
+cargo install --git https://github.com/oddurs/yoghurt
+```
 
 yoghurt supports **macOS**. It compiles on Linux and its tests pass there, but
 three of its sources — applications, the App Store, and code signatures — have
 nothing to read, so that is a portability check rather than support.
 
-yoghurt is read-mostly. Reading is the default; anything that
-changes the machine shows you the exact command first and asks you to type a
-confirmation. It never touches your shell configuration, and nothing happens
-silently.
+## Using it
 
-## Install
+| | |
+| --- | --- |
+| `↑↓` `jk` | move |
+| `↵` | detail, and why it is here |
+| `space` | fold a group |
+| `g` | group: source, role, category, purpose, size, age, health |
+| `s` `S` | sort column, reverse |
+| `/` | find by name, source, command, or description |
+| `!` | filter by one of the counts in the strip |
+| `r` `R` | rescan; `R` also asks the network what is newer |
+| `esc` | undo one narrowing, then leave |
 
-From source, with a Rust toolchain installed:
+**The mouse does all of it.** Click a count to filter, a heading to fold, the
+rule to regroup, a key in the footer to press it. Hovering marks a row without
+selecting it.
 
-```sh
-cargo install --git https://github.com/oddurs/yoghurt
+Piped, it prints a table instead, so `yoghurt | awk` works:
+
+```console
+$ yoghurt | grep pulled-in | wc -l
+133
 ```
 
-Or clone and build:
+`yoghurt --screenshot 92x14 --group role` renders one frame and exits, which is
+how the screens above were made.
 
-```sh
-git clone https://github.com/oddurs/yoghurt
-cd yoghurt
-cargo build --release   # binary at target/release/yoghurt
-```
+## Read-mostly
+
+Reading is the default and almost all of what this does. Anything that changes
+the machine shows the exact command first and asks you to type a confirmation —
+never a keystroke, and never in bulk without the whole list visible. It never
+touches your shell configuration, and it never contacts the network unless you
+ask it to.
 
 ## Optional: what things are for
 
 yoghurt can ask a model to sort packages into categories, which is the one thing
-it cannot work out by looking. It is **off** unless you switch it on, because
-the rest of the tool never touches the network.
+it cannot work out by looking. It is **off** unless you switch it on.
 
 `~/.config/yoghurt/config.toml`:
 
@@ -83,27 +128,23 @@ model = "anthropic/claude-haiku-4.5"
 ```
 
 Only names and descriptions are sent — never paths, never versions, never the
-shape of your home directory. Answers are cached in
-`~/.cache/yoghurt/taxonomy.json`, so it asks once per package ever and two runs
-of the same machine group identically. Labels appear with a `~` in front of
-them, because they are a guess and everything else yoghurt shows is an
-observation.
+shape of your home directory. Answers are cached, so it asks once per package
+ever and two runs of the same machine group identically. Labels appear with a
+`~`, because they are a guess and everything else here is an observation.
 
 ## Development
-
-One command sets everything up:
 
 ```sh
 ./scripts/setup
 ```
 
-That wires the tracked git hooks (`core.hooksPath` → `.githooks`) and runs the
-environment check. From then on the binary on your `PATH` keeps itself current:
-merging something that changes the source reinstalls it, and `yoghurt --version`
-reports the commit it was built from so you can always tell. From then on, two scripts carry the whole workflow.
+That wires the tracked git hooks and runs the environment check. From then on
+the binary on your `PATH` keeps itself current: merging something that changes
+the source reinstalls it, and `yoghurt --version` reports the commit it was
+built from.
 
 `scripts/task` is the seam every piece of automation talks to — CI and the git
-hooks know only these verbs, so they cannot drift from what you run:
+hooks know only these verbs:
 
 | Command | Does |
 | --- | --- |
@@ -118,33 +159,18 @@ hooks know only these verbs, so they cannot drift from what you run:
 `scripts/agent` is the workflow — one unit of work, one worktree, one branch,
 one pull request:
 
-| Command | Does |
-| --- | --- |
-| `scripts/agent doctor` | Check tooling, auth, hooks, working tree |
-| `scripts/agent start <type>/<slug>` | Branch and worktree from `main` |
-| `scripts/agent check` | `scripts/task check` |
-| `scripts/agent commit <msg>` | Commit, with the message validated |
-| `scripts/agent pr [--draft]` | Check, push, open the pull request |
-| `scripts/agent sync` | Rebase onto `origin/main` |
-| `scripts/agent done` | Confirm merged, then clean up |
-| `scripts/agent list` | Worktrees, branches, pull request state |
-
-A full pass looks like this:
-
 ```sh
-scripts/agent start feat/treemap
-cd ../.worktrees/yoghurt/feat/treemap
-# ... work ...
-scripts/agent commit "feat: draw the disk treemap"
+scripts/agent start feat/npm-source
+cd ../.worktrees/yoghurt/feat/npm-source
+scripts/agent commit "feat: read global npm packages"
 scripts/agent pr
-# ... review, squash-merge ...
+# after the pull request is squash-merged:
 scripts/agent done
 ```
 
-`main` advances only through a merged pull request. The `pre-push` hook refuses
-a direct push, and branch protection refuses it again on the server.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the details.
+`main` advances only through a merged pull request. See
+[CONTRIBUTING.md](CONTRIBUTING.md), the design in
+[docs/interface.md](docs/interface.md), and the plan in [ROADMAP.md](ROADMAP.md).
 
 ## License
 
