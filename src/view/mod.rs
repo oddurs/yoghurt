@@ -5,6 +5,7 @@
 
 pub mod app;
 pub mod detail;
+pub mod hit;
 pub mod plain;
 pub mod row;
 #[path = "loop_.rs"]

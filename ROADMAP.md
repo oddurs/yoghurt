@@ -4,13 +4,12 @@
 
 ## v0.1 — See it
 
-`##########` 93% · 26 of 28 done · due 2026-10-20
+`##########` 96% · 27 of 28 done · due 2026-10-20
 
 Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ### backlog
 
-- [ ] `0019` Drive every one of those with the mouse <sup>feature · p0 · mouse</sup>
 - [ ] `0023` Rewrite the README around what it shows <sup>docs · p1 · docs</sup>
 
 ### done
@@ -27,6 +26,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 - [x] `0016` Draw the chrome: header, status strip, footer <sup>feature · p0 · chrome</sup>
 - [x] `0017` Show the inventory as a grouped list <sup>feature · p0 · list</sup>
 - [x] `0018` Answer "why is this here" in the detail pane <sup>feature · p0 · detail</sup>
+- [x] `0019` Drive every one of those with the mouse <sup>feature · p0 · mouse</sup>
 - [x] `0020` Make every facet in the strip a filter <sup>feature · p1 · chrome</sup>
 - [x] `0021` Print a table when stdout is not a terminal <sup>feature · p1 · cli</sup>
 - [x] `0022` Say macOS, and make CI say so too <sup>chore · p1 · packaging</sup>

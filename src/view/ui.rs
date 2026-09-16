@@ -14,13 +14,21 @@ use std::fmt::Write as _;
 
 use crate::view::app::App;
 use crate::view::detail;
+use crate::view::hit::{Hit, Hits};
 use crate::view::row::{Axis, Item, Row, State};
 
 /// Below this the header drops to the identity and the counts.
 const NARROW: u16 = 80;
 
 /// Draw one frame.
-pub fn draw(frame: &mut Frame, app: &App) {
+pub fn draw(frame: &mut Frame, app: &mut App) {
+    // The previous frame's regions describe a screen that no longer exists.
+    let mut hits = crate::view::hit::Hits::default();
+    draw_into(frame, app, &mut hits);
+    app.hits = hits;
+}
+
+fn draw_into(frame: &mut Frame, app: &App, hits: &mut Hits) {
     let [header, strip, rule, body, footer] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length(1),
@@ -31,10 +39,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
     .areas(frame.area());
 
     draw_header(frame, app, header);
-    draw_strip(frame, app, strip);
-    draw_rule(frame, app, rule);
-    draw_body(frame, app, body);
-    draw_footer(frame, app, footer);
+    draw_strip(frame, app, strip, hits);
+    draw_rule(frame, app, rule, hits);
+    draw_body(frame, app, body, hits);
+    draw_footer(frame, app, footer, hits);
 }
 
 /// Identity, totals, and how fresh this is.
@@ -100,7 +108,7 @@ fn truncate(spans: &mut Vec<Span<'_>>, budget: usize) {
 ///
 /// Every count here is a filter in 0020. Until then it is still the fastest
 /// answer to "is anything wrong", which is what most people open this for.
-fn draw_strip(frame: &mut Frame, app: &App, area: Rect) {
+fn draw_strip(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
     let mut spans = vec![Span::raw(" ")];
     let mut used = 1;
 
@@ -115,6 +123,15 @@ fn draw_strip(frame: &mut Frame, app: &App, area: Rect) {
         if used + width > usize::from(area.width) {
             break;
         }
+        hits.add(
+            Rect {
+                x: area.x + u16::try_from(used).unwrap_or(0),
+                y: area.y,
+                width: u16::try_from(width).unwrap_or(0),
+                height: 1,
+            },
+            Hit::Facet(label.to_owned()),
+        );
         used += width;
 
         let style = Style::new()
@@ -147,7 +164,7 @@ fn facet_colour(label: &str) -> Color {
     }
 }
 
-fn draw_rule(frame: &mut Frame, app: &App, area: Rect) {
+fn draw_rule(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
     // Descending by default, flipped by `S`. The arrow says which, because the
     // default differs per column and nobody should have to remember that.
     let descending = app.reversed ^ app.sort.descends_by_default();
@@ -167,6 +184,28 @@ fn draw_rule(frame: &mut Frame, app: &App, area: Rect) {
         "{title}{}",
         "─".repeat(usize::from(area.width).saturating_sub(title.chars().count()))
     );
+    // The whole rule changes the axis, except the part naming the sort column.
+    let title_width = u16::try_from(title.chars().count()).unwrap_or(area.width);
+    hits.add(
+        Rect {
+            x: area.x,
+            y: area.y,
+            width: title_width,
+            height: 1,
+        },
+        Hit::Axis,
+    );
+    if let Some(at) = title.find(app.sort.label()) {
+        hits.add(
+            Rect {
+                x: area.x + u16::try_from(at).unwrap_or(0),
+                y: area.y,
+                width: u16::try_from(app.sort.label().chars().count()).unwrap_or(0),
+                height: 1,
+            },
+            Hit::Sort,
+        );
+    }
     frame.render_widget(
         Paragraph::new(Line::from(Span::styled(
             rule,
@@ -199,14 +238,15 @@ const SHOW_SIZE: u16 = 68;
 const SHOW_VERSION: u16 = 56;
 
 /// The inventory, and the detail beside it when there is room.
-fn draw_body(frame: &mut Frame, app: &App, area: Rect) {
+fn draw_body(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
     let Some((item, offset)) = app.selected_item().zip(app.detail) else {
-        draw_list(frame, app, area);
+        draw_list(frame, app, area, hits);
         return;
     };
     if area.width < SPLIT {
         // Too narrow to split: detail takes the body rather than halving
         // something that is already hard to read.
+        hits.add(area, Hit::Detail);
         draw_detail(frame, app, item, offset, area);
         return;
     }
@@ -216,7 +256,8 @@ fn draw_body(frame: &mut Frame, app: &App, area: Rect) {
     let share = (area.width * 2 / 5).max(DETAIL_MIN);
     let [list, detail] =
         Layout::horizontal([Constraint::Min(0), Constraint::Length(share)]).areas(area);
-    draw_list(frame, app, list);
+    draw_list(frame, app, list, hits);
+    hits.add(detail, Hit::Detail);
     draw_detail(frame, app, item, offset, detail);
 }
 
@@ -267,7 +308,7 @@ fn draw_detail(frame: &mut Frame, app: &App, item: &Item, offset: usize, area: R
 }
 
 /// The inventory.
-fn draw_list(frame: &mut Frame, app: &App, area: Rect) {
+fn draw_list(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
     if app.rows.is_empty() {
         let message = if app.graph.packages().count() == 0 {
             "  Nothing found. No package manager on this machine reported anything.".to_owned()
@@ -297,14 +338,35 @@ fn draw_list(frame: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .skip(app.offset)
         .take(height)
-        .map(|(index, row)| line_for(row, index == app.selected, area.width, show_source))
+        .enumerate()
+        .map(|(offset, (index, row))| {
+            hits.add(
+                Rect {
+                    x: area.x,
+                    y: area.y + u16::try_from(offset).unwrap_or(0),
+                    width: area.width,
+                    height: 1,
+                },
+                Hit::Row(index),
+            );
+            let selected = index == app.selected;
+            // Hover is shown as well as selection, which is the difference
+            // between an interface the mouse drives and one it tolerates.
+            line_for(
+                row,
+                selected,
+                app.hovered == Some(index),
+                area.width,
+                show_source,
+            )
+        })
         .collect();
 
     frame.render_widget(Paragraph::new(lines), area);
 }
 
 /// One line of the list.
-fn line_for(row: &Row, selected: bool, width: u16, show_source: bool) -> Line<'_> {
+fn line_for(row: &Row, selected: bool, hovered: bool, width: u16, show_source: bool) -> Line<'_> {
     let spans = match row {
         Row::Group {
             key,
@@ -317,6 +379,10 @@ fn line_for(row: &Row, selected: bool, width: u16, show_source: bool) -> Line<'_
     let line = Line::from(spans);
     if selected {
         line.style(Style::new().add_modifier(Modifier::REVERSED))
+    } else if hovered {
+        // Shown as well as selection: the difference between an interface the
+        // mouse drives and one it merely tolerates.
+        line.style(Style::new().add_modifier(Modifier::UNDERLINED))
     } else {
         line
     }
@@ -432,7 +498,7 @@ fn trim(text: &str, width: usize) -> String {
 }
 
 /// The keys that do something right now.
-fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
+fn draw_footer(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
     // The footer says what the keys do *now*, so typing shows a different set.
     let keys: &[(&str, &str)] = if app.is_typing() {
         &[("type", "filter"), ("↵", "keep"), ("esc", "clear")]
@@ -450,7 +516,25 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
         ]
     };
     let mut spans = vec![Span::raw(" ")];
+    let mut used = 1usize;
     for (key, what) in keys {
+        let width = key.chars().count() + what.chars().count() + 3;
+        // Only single-character keys are clickable, because only those can be
+        // turned back into a keypress without inventing one.
+        if key.chars().count() == 1
+            && let Some(c) = key.chars().next()
+        {
+            hits.add(
+                Rect {
+                    x: area.x + u16::try_from(used).unwrap_or(0),
+                    y: area.y,
+                    width: u16::try_from(width).unwrap_or(0),
+                    height: 1,
+                },
+                Hit::Key(c),
+            );
+        }
+        used += width;
         spans.push(Span::styled(
             *key,
             Style::new().add_modifier(Modifier::BOLD),
@@ -496,7 +580,7 @@ mod tests {
     fn a_full_frame_matches_the_fixture() {
         let mut app = machine();
         app.host = "mba-oddur".to_owned();
-        let rendered = render(&app, 78, 6).join("\n");
+        let rendered = render(&mut app, 78, 6).join("\n");
         let fixture = include_str!("../../tests/fixtures/chrome-78x6.txt");
 
         // Regenerate with: YOGHURT_BLESS=1 cargo test chrome
@@ -513,34 +597,34 @@ mod tests {
         let mut app = machine();
         app.host = "mba".to_owned();
         assert!(
-            render(&app, 100, 4)[0].contains("1 package · 1 source · 6.2M"),
+            render(&mut app, 100, 4)[0].contains("1 package · 1 source · 6.2M"),
             "{:?}",
-            render(&app, 100, 4)[0]
+            render(&mut app, 100, 4)[0]
         );
         assert!(
-            !render(&app, 60, 4)[0].contains("packages ·"),
+            !render(&mut app, 60, 4)[0].contains("packages ·"),
             "no room at 60 columns"
         );
     }
 
     #[test]
     fn freshness_survives_even_the_narrowest_header() {
-        let app = machine();
+        let mut app = machine();
         assert!(
-            render(&app, 40, 4)[0].contains("just now"),
+            render(&mut app, 40, 4)[0].contains("just now"),
             "a reader must know how stale this is"
         );
     }
 
     #[test]
     fn an_empty_machine_says_so_rather_than_showing_a_blank_pane() {
-        let app = App::new(Graph::from_facts([]));
-        assert!(render(&app, 80, 6).join("\n").contains("Nothing found"));
+        let mut app = App::new(Graph::from_facts([]));
+        assert!(render(&mut app, 80, 6).join("\n").contains("Nothing found"));
     }
 
     #[test]
     fn a_facet_that_does_not_fit_is_dropped_whole() {
-        let frame = render(&machine(), 30, 4);
+        let frame = render(&mut machine(), 30, 4);
         assert!(
             !frame[1].contains("bro"),
             "a half-written word is worse than silence: {:?}",
@@ -582,12 +666,12 @@ mod tests {
     fn the_active_facet_is_marked_by_shape_not_only_by_colour() {
         use crate::view::row::Facet;
         let mut app = machine();
-        assert!(!render(&app, 90, 4)[1].contains('◂'));
+        assert!(!render(&mut app, 90, 4)[1].contains('◂'));
         app.toggle_facet(Facet::Wanted);
         assert!(
-            render(&app, 90, 4)[1].contains("wanted ◂"),
+            render(&mut app, 90, 4)[1].contains("wanted ◂"),
             "under mono, colour says nothing: {:?}",
-            render(&app, 90, 4)[1]
+            render(&mut app, 90, 4)[1]
         );
     }
 
@@ -595,7 +679,7 @@ mod tests {
     fn a_failed_scan_says_so_where_the_freshness_would_be() {
         let mut app = machine();
         app.failure = Some("brew fell over".to_owned());
-        let header = render(&app, 90, 4)[0].clone();
+        let header = render(&mut app, 90, 4)[0].clone();
         assert!(header.contains("scan failed"), "{header}");
         assert!(
             !header.contains("scanned"),
@@ -607,7 +691,7 @@ mod tests {
         let mut app = machine();
         app.move_by(1);
         app.toggle_detail();
-        render(&app, width, height)
+        render(&mut app, width, height)
     }
 
     #[test]
@@ -653,7 +737,7 @@ mod tests {
 
     #[test]
     fn the_source_is_not_repeated_on_every_row_under_its_own_heading() {
-        let frame = render(&machine(), 120, 6).join("\n");
+        let frame = render(&mut machine(), 120, 6).join("\n");
         assert_eq!(
             frame.matches("homebrew").count(),
             1,
@@ -664,7 +748,7 @@ mod tests {
     #[test]
     fn every_line_is_exactly_as_wide_as_the_terminal() {
         for width in [40_u16, 60, 80, 100, 200] {
-            for line in render(&machine(), width, 8) {
+            for line in render(&mut machine(), width, 8) {
                 assert_eq!(
                     line.chars().count(),
                     usize::from(width),
