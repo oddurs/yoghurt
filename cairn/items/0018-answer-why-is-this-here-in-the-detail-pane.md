@@ -2,13 +2,14 @@
 id: 18
 title: Answer "why is this here" in the detail pane
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 13
 - 17
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p0
 effort: m
 area: detail

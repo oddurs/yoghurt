@@ -4,6 +4,7 @@
 //! has to decide what a package *is*, it belongs in [`crate::model`] instead.
 
 pub mod app;
+pub mod detail;
 pub mod plain;
 pub mod row;
 #[path = "loop_.rs"]

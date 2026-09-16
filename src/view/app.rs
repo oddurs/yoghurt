@@ -43,6 +43,8 @@ pub struct App {
     pub filter: Filter,
     /// What keystrokes currently mean.
     pub mode: Mode,
+    /// Whether detail is showing, and how far down it is scrolled.
+    pub detail: Option<usize>,
 }
 
 /// What a keypress does right now.
@@ -89,6 +91,7 @@ impl App {
             reversed: false,
             filter: Filter::default(),
             mode: Mode::default(),
+            detail: None,
         }
     }
 
@@ -190,6 +193,36 @@ impl App {
         self.rebuild();
     }
 
+    /// The item the cursor is on, if it is on one.
+    #[must_use]
+    pub fn selected_item(&self) -> Option<&crate::view::row::Item> {
+        match self.rows.get(self.selected)? {
+            Row::Item(item) => Some(item),
+            Row::Group { .. } => None,
+        }
+    }
+
+    /// Show or hide the detail for whatever the cursor is on.
+    ///
+    /// A heading has no detail, so `↵` on one folds it instead — which is what
+    /// it already did, and what a reader expects.
+    pub fn toggle_detail(&mut self) {
+        if self.detail.is_some() {
+            self.detail = None;
+        } else if self.selected_item().is_some() {
+            self.detail = Some(0);
+        } else {
+            self.toggle_group();
+        }
+    }
+
+    /// Scroll the detail, if it is showing.
+    pub fn scroll_detail(&mut self, delta: isize) {
+        if let Some(offset) = self.detail {
+            self.detail = Some(offset.saturating_add_signed(delta));
+        }
+    }
+
     /// Start typing a query.
     pub fn start_typing(&mut self) {
         self.mode = Mode::Typing;
@@ -254,6 +287,11 @@ impl App {
         }
         let last = self.rows.len() - 1;
         self.selected = self.selected.saturating_add_signed(delta).min(last);
+        // Detail follows the cursor rather than staying on what it was opened
+        // for, and starts at the top of whatever it now describes.
+        if self.detail.is_some() {
+            self.detail = Some(0);
+        }
     }
 
     /// Fold or unfold the group the cursor is on.

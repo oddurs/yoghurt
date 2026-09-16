@@ -13,6 +13,7 @@ use ratatui::widgets::Paragraph;
 use std::fmt::Write as _;
 
 use crate::view::app::App;
+use crate::view::detail;
 use crate::view::row::{Axis, Item, Row, State};
 
 /// Below this the header drops to the identity and the counts.
@@ -175,6 +176,15 @@ fn draw_rule(frame: &mut Frame, app: &App, area: Rect) {
     );
 }
 
+/// Below this a detail pane costs the list more than it gives.
+///
+/// A pane beside an editor is usually sixty columns, and two panes in sixty is
+/// two unreadable panes — so below this, detail takes the whole body instead.
+const SPLIT: u16 = 96;
+
+/// The least width detail is worth showing in.
+const DETAIL_MIN: u16 = 38;
+
 /// Widths at which a column stops paying for itself.
 ///
 /// They drop in order of how little they answer: role, then size, then version.
@@ -188,8 +198,76 @@ const SHOW_ROLE: u16 = 80;
 const SHOW_SIZE: u16 = 68;
 const SHOW_VERSION: u16 = 56;
 
-/// The inventory.
+/// The inventory, and the detail beside it when there is room.
 fn draw_body(frame: &mut Frame, app: &App, area: Rect) {
+    let Some((item, offset)) = app.selected_item().zip(app.detail) else {
+        draw_list(frame, app, area);
+        return;
+    };
+    if area.width < SPLIT {
+        // Too narrow to split: detail takes the body rather than halving
+        // something that is already hard to read.
+        draw_detail(frame, app, item, offset, area);
+        return;
+    }
+    // Two fifths, but never less than readable. At a fixed width the line that
+    // matters most — the one naming what you installed — was the first to be
+    // cut, on exactly the wide terminals that had room to spare.
+    let share = (area.width * 2 / 5).max(DETAIL_MIN);
+    let [list, detail] =
+        Layout::horizontal([Constraint::Min(0), Constraint::Length(share)]).areas(area);
+    draw_list(frame, app, list);
+    draw_detail(frame, app, item, offset, detail);
+}
+
+/// What one thing is, and why it is here.
+fn draw_detail(frame: &mut Frame, app: &App, item: &Item, offset: usize, area: Rect) {
+    let width = usize::from(area.width).saturating_sub(2);
+    let mut lines: Vec<Line<'_>> = vec![Line::from(Span::styled(
+        format!(" {}", trim(&item.name, width)),
+        Style::new().fg(Color::White).add_modifier(Modifier::BOLD),
+    ))];
+
+    for line in crate::view::detail::lines(&app.graph, item, app.now) {
+        lines.push(match line {
+            detail::Line::Section(name) => {
+                // A heading with a rule out to the edge: cheaper to scan than a
+                // column of capitals, and it gives the pane a rhythm.
+                let rule = "─".repeat(width.saturating_sub(name.chars().count() + 2));
+                Line::from(Span::styled(
+                    format!(" {name} {rule}"),
+                    Style::new().fg(Color::DarkGray),
+                ))
+            }
+            detail::Line::Text(text) => Line::from(Span::raw(trim(&text, width))),
+            detail::Line::Field(key, value) => Line::from(vec![
+                Span::styled(format!("  {key:<13} "), Style::new().fg(Color::DarkGray)),
+                Span::raw(trim(&value, width.saturating_sub(16))),
+            ]),
+            detail::Line::Command(command) => Line::from(Span::styled(
+                format!("  {}", trim(&command, width.saturating_sub(2))),
+                Style::new().fg(Color::Cyan),
+            )),
+            detail::Line::Blank => Line::from(""),
+        });
+    }
+
+    let height = usize::from(area.height).max(1);
+    let offset = offset.min(lines.len().saturating_sub(height));
+    frame.render_widget(
+        Paragraph::new(
+            lines
+                .into_iter()
+                .skip(offset)
+                .take(height)
+                .collect::<Vec<_>>(),
+        ),
+        area,
+    );
+}
+
+/// The inventory.
+fn draw_list(frame: &mut Frame, app: &App, area: Rect) {
     if app.rows.is_empty() {
         let message = if app.graph.packages().count() == 0 {
             "  Nothing found. No package manager on this machine reported anything.".to_owned()
@@ -366,6 +444,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
             ("s", "sort"),
             ("/", "find"),
             ("!", "facet"),
+            ("↵", "detail"),
             ("r", "rescan"),
             ("q", "quit"),
         ]
@@ -522,6 +601,46 @@ mod tests {
             !header.contains("scanned"),
             "a time that is quietly older than it looks is the worst thing this line can say"
         );
+    }
+
+    fn with_detail(width: u16, height: u16) -> Vec<String> {
+        let mut app = machine();
+        app.move_by(1);
+        app.toggle_detail();
+        render(&app, width, height)
+    }
+
+    #[test]
+    fn detail_sits_beside_the_list_when_there_is_room() {
+        let frame = with_detail(120, 8).join("\n");
+        assert!(
+            frame.contains("▾ homebrew"),
+            "the list is still there:\n{frame}"
+        );
+        assert!(frame.contains("WHY"), "and so is the pane:\n{frame}");
+    }
+
+    #[test]
+    fn detail_takes_the_whole_body_when_the_split_would_be_unreadable() {
+        let frame = with_detail(80, 8).join("\n");
+        assert!(frame.contains("WHY"), "{frame}");
+        assert!(
+            !frame.contains("▾ homebrew"),
+            "two panes in eighty columns is two unreadable panes:\n{frame}"
+        );
+    }
+
+    #[test]
+    fn every_line_is_still_exactly_the_width_with_detail_open() {
+        for width in [80_u16, 100, 120, 200] {
+            for line in with_detail(width, 10) {
+                assert_eq!(
+                    line.chars().count(),
+                    usize::from(width),
+                    "at {width} columns"
+                );
+            }
+        }
     }
 
     #[test]

@@ -33,6 +33,7 @@ Choosing a view (with --screenshot):
   --sort COLUMN    name, size, age, state, version
   --facet NAME     wanted, pulled in, outdated, unexplained, broken
   --find TEXT      narrow to what matches
+  --detail         open the detail pane on the first row
 
 Columns:
   NAME  SOURCE  VERSION  ORIGIN  SIZE  PATH
@@ -90,6 +91,7 @@ struct Shot {
     sort: Option<Sort>,
     facet: Option<Facet>,
     find: Option<String>,
+    detail: bool,
 }
 
 /// `96x30` into a size.
@@ -153,6 +155,7 @@ fn parse(args: &[String]) -> Result<Action, String> {
                 );
             }
             "--find" => shot.find = Some(value("--find")?),
+            "--detail" => shot.detail = true,
             other => return Err(format!("unrecognised argument `{other}`")),
         }
     }
@@ -199,6 +202,11 @@ fn screenshot(shot: &Shot) -> Result<String, String> {
         app.filter.query.clone_from(find);
     }
     app.rebuild();
+    if shot.detail {
+        // The first row is a heading, so step onto what it contains.
+        app.move_by(1);
+        app.toggle_detail();
+    }
     app.scroll_into_view(usize::from(shot.height).saturating_sub(4));
     Ok(testkit::render(&app, shot.width, shot.height).join("\n") + "\n")
 }
