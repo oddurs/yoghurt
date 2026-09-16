@@ -34,6 +34,7 @@ Choosing a view (with --screenshot):
   --facet NAME     wanted, pulled in, outdated, unexplained, broken
   --find TEXT      narrow to what matches
   --detail         open the detail pane on the first row
+  --theme NAME     auto, or mono for no colour at all
 
 Columns:
   NAME  SOURCE  VERSION  ORIGIN  SIZE  PATH
@@ -92,6 +93,7 @@ struct Shot {
     facet: Option<Facet>,
     find: Option<String>,
     detail: bool,
+    theme: Option<yoghurt::view::theme::Theme>,
 }
 
 /// `96x30` into a size.
@@ -156,6 +158,13 @@ fn parse(args: &[String]) -> Result<Action, String> {
             }
             "--find" => shot.find = Some(value("--find")?),
             "--detail" => shot.detail = true,
+            "--theme" => {
+                let name = value("--theme")?;
+                shot.theme = Some(
+                    yoghurt::view::theme::Theme::from_label(&name)
+                        .ok_or_else(|| format!("no such theme `{name}`"))?,
+                );
+            }
             other => return Err(format!("unrecognised argument `{other}`")),
         }
     }
@@ -214,6 +223,9 @@ fn screenshot(shot: &Shot) -> Result<String, String> {
     app.filter.facet = shot.facet;
     if let Some(find) = &shot.find {
         app.filter.query.clone_from(find);
+    }
+    if let Some(theme) = shot.theme {
+        app.theme = theme;
     }
     app.rebuild();
     if shot.detail {

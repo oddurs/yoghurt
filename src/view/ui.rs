@@ -7,7 +7,7 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use std::fmt::Write as _;
@@ -16,6 +16,7 @@ use crate::view::app::App;
 use crate::view::detail;
 use crate::view::hit::{Hit, Hits};
 use crate::view::row::{Axis, Item, Row, State};
+use crate::view::theme::{Role, Theme};
 
 /// Below this the header drops to the identity and the counts.
 const NARROW: u16 = 80;
@@ -64,7 +65,10 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
     let mut left = vec![
         Span::styled(" yoghurt", Style::new().add_modifier(Modifier::BOLD)),
         Span::raw("  "),
-        Span::styled(app.host.clone(), Style::new().fg(Color::Cyan)),
+        Span::styled(
+            app.host.clone(),
+            Style::new().fg(app.theme.colour(Role::Accent)),
+        ),
     ];
     if area.width >= NARROW {
         left.push(Span::raw("   "));
@@ -75,14 +79,17 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
                 plural(totals.sources, "source"),
                 super::plain::human(totals.bytes)
             ),
-            Style::new().fg(Color::DarkGray),
+            Style::new().fg(app.theme.colour(Role::Muted)),
         ));
     }
 
     truncate(&mut left, width.saturating_sub(reserved));
     let used: usize = left.iter().map(|s| s.content.chars().count()).sum();
     left.push(Span::raw(" ".repeat(width.saturating_sub(used + reserved))));
-    left.push(Span::styled(freshness, Style::new().fg(Color::DarkGray)));
+    left.push(Span::styled(
+        freshness,
+        Style::new().fg(app.theme.colour(Role::Muted)),
+    ));
 
     frame.render_widget(Paragraph::new(Line::from(left)), area);
 }
@@ -135,7 +142,7 @@ fn draw_strip(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
         used += width;
 
         let style = Style::new()
-            .fg(facet_colour(label))
+            .fg(app.theme.colour(facet_role(label)))
             .add_modifier(Modifier::BOLD);
         spans.push(Span::styled(
             count.to_string(),
@@ -147,20 +154,20 @@ fn draw_strip(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
         ));
         spans.push(Span::styled(
             format!(" {label}{}   ", if active { " ◂" } else { "" }),
-            Style::new().fg(Color::DarkGray),
+            Style::new().fg(app.theme.colour(Role::Muted)),
         ));
     }
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
 /// One hue per facet, used identically wherever the facet appears.
-fn facet_colour(label: &str) -> Color {
+fn facet_role(label: &str) -> Role {
     match label {
-        "wanted" => Color::Green,
-        "pulled in" => Color::Blue,
-        "outdated" => Color::Yellow,
-        "broken" => Color::Red,
-        _ => Color::Magenta,
+        "wanted" => Role::Wanted,
+        "pulled in" => Role::PulledIn,
+        "outdated" => Role::Outdated,
+        "broken" => Role::Broken,
+        _ => Role::Unaccounted,
     }
 }
 
@@ -209,7 +216,7 @@ fn draw_rule(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
     frame.render_widget(
         Paragraph::new(Line::from(Span::styled(
             rule,
-            Style::new().fg(Color::DarkGray),
+            Style::new().fg(app.theme.colour(Role::Muted)),
         ))),
         area,
     );
@@ -266,7 +273,9 @@ fn draw_detail(frame: &mut Frame, app: &App, item: &Item, offset: usize, area: R
     let width = usize::from(area.width).saturating_sub(2);
     let mut lines: Vec<Line<'_>> = vec![Line::from(Span::styled(
         format!(" {}", trim(&item.name, width)),
-        Style::new().fg(Color::White).add_modifier(Modifier::BOLD),
+        Style::new()
+            .fg(app.theme.colour(Role::Heading))
+            .add_modifier(Modifier::BOLD),
     ))];
 
     for line in crate::view::detail::lines(&app.graph, item, app.now) {
@@ -277,17 +286,20 @@ fn draw_detail(frame: &mut Frame, app: &App, item: &Item, offset: usize, area: R
                 let rule = "─".repeat(width.saturating_sub(name.chars().count() + 2));
                 Line::from(Span::styled(
                     format!(" {name} {rule}"),
-                    Style::new().fg(Color::DarkGray),
+                    Style::new().fg(app.theme.colour(Role::Muted)),
                 ))
             }
             detail::Line::Text(text) => Line::from(Span::raw(trim(&text, width))),
             detail::Line::Field(key, value) => Line::from(vec![
-                Span::styled(format!("  {key:<13} "), Style::new().fg(Color::DarkGray)),
+                Span::styled(
+                    format!("  {key:<13} "),
+                    Style::new().fg(app.theme.colour(Role::Muted)),
+                ),
                 Span::raw(trim(&value, width.saturating_sub(16))),
             ]),
             detail::Line::Command(command) => Line::from(Span::styled(
                 format!("  {}", trim(&command, width.saturating_sub(2))),
-                Style::new().fg(Color::Cyan),
+                Style::new().fg(app.theme.colour(Role::Accent)),
             )),
             detail::Line::Blank => Line::from(""),
         });
@@ -321,7 +333,7 @@ fn draw_list(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
         frame.render_widget(
             Paragraph::new(Line::from(Span::styled(
                 message,
-                Style::new().fg(Color::DarkGray),
+                Style::new().fg(app.theme.colour(Role::Muted)),
             ))),
             area,
         );
@@ -358,6 +370,7 @@ fn draw_list(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
                 app.hovered == Some(index),
                 area.width,
                 show_source,
+                app.theme,
             )
         })
         .collect();
@@ -366,15 +379,22 @@ fn draw_list(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
 }
 
 /// One line of the list.
-fn line_for(row: &Row, selected: bool, hovered: bool, width: u16, show_source: bool) -> Line<'_> {
+fn line_for(
+    row: &Row,
+    selected: bool,
+    hovered: bool,
+    width: u16,
+    show_source: bool,
+    theme: Theme,
+) -> Line<'_> {
     let spans = match row {
         Row::Group {
             key,
             count,
             bytes,
             collapsed,
-        } => group_line(key, *count, *bytes, *collapsed, width),
-        Row::Item(item) => item_line(item, width, show_source),
+        } => group_line(key, *count, *bytes, *collapsed, width, theme),
+        Row::Item(item) => item_line(item, width, show_source, theme),
     };
     let line = Line::from(spans);
     if selected {
@@ -389,7 +409,14 @@ fn line_for(row: &Row, selected: bool, hovered: bool, width: u16, show_source: b
 }
 
 /// A heading, with what is under it.
-fn group_line(key: &str, count: usize, bytes: u64, collapsed: bool, width: u16) -> Vec<Span<'_>> {
+fn group_line(
+    key: &str,
+    count: usize,
+    bytes: u64,
+    collapsed: bool,
+    width: u16,
+    theme: Theme,
+) -> Vec<Span<'_>> {
     let arrow = if collapsed { "▸" } else { "▾" };
     let right = format!("{count}  {}  ", super::plain::human(bytes));
     let left = format!(" {arrow} {key}");
@@ -398,10 +425,12 @@ fn group_line(key: &str, count: usize, bytes: u64, collapsed: bool, width: u16) 
     vec![
         Span::styled(
             left,
-            Style::new().fg(Color::White).add_modifier(Modifier::BOLD),
+            Style::new()
+                .fg(theme.colour(Role::Heading))
+                .add_modifier(Modifier::BOLD),
         ),
         Span::raw(" ".repeat(gap)),
-        Span::styled(right, Style::new().fg(Color::DarkGray)),
+        Span::styled(right, Style::new().fg(theme.colour(Role::Muted))),
     ]
 }
 
@@ -409,7 +438,7 @@ fn group_line(key: &str, count: usize, bytes: u64, collapsed: bool, width: u16) 
 ///
 /// Everything right of the name is fixed width and right-aligned, so the eye
 /// runs down a column instead of hunting along each row.
-fn item_line(item: &Item, width: u16, show_source: bool) -> Vec<Span<'_>> {
+fn item_line(item: &Item, width: u16, show_source: bool, theme: Theme) -> Vec<Span<'_>> {
     let mut right = String::new();
     if width >= SHOW_VERSION {
         let _ = write!(
@@ -439,11 +468,11 @@ fn item_line(item: &Item, width: u16, show_source: bool) -> Vec<Span<'_>> {
 
     vec![
         Span::raw("  "),
-        Span::styled(glyph(item), Style::new().fg(glyph_colour(item))),
+        Span::styled(glyph(item), Style::new().fg(theme.colour(glyph_role(item)))),
         Span::raw(" "),
         Span::raw(name),
         Span::raw(" ".repeat(gap)),
-        Span::styled(right, Style::new().fg(Color::DarkGray)),
+        Span::styled(right, Style::new().fg(theme.colour(Role::Muted))),
     ]
 }
 
@@ -460,22 +489,22 @@ fn glyph(item: &Item) -> &'static str {
     }
 }
 
-/// The colour that goes with it.
-fn glyph_colour(item: &Item) -> Color {
+/// The role its colour comes from.
+fn glyph_role(item: &Item) -> Role {
     if item.outdated {
-        Color::Yellow
+        Role::Outdated
     } else {
-        state_colour(item.state)
+        state_role(item.state)
     }
 }
 
 /// One hue per state, matching the strip above it.
-fn state_colour(state: State) -> Color {
+fn state_role(state: State) -> Role {
     match state {
-        State::Fine => Color::Green,
-        State::PulledIn => Color::Blue,
-        State::Unexplained | State::Orphan => Color::Magenta,
-        State::Broken => Color::Red,
+        State::Fine => Role::Wanted,
+        State::PulledIn => Role::PulledIn,
+        State::Unexplained | State::Orphan => Role::Unaccounted,
+        State::Broken => Role::Broken,
     }
 }
 
@@ -541,7 +570,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
         ));
         spans.push(Span::styled(
             format!(" {what}  "),
-            Style::new().fg(Color::DarkGray),
+            Style::new().fg(app.theme.colour(Role::Muted)),
         ));
     }
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
@@ -725,6 +754,32 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn mono_keeps_every_glyph_so_nothing_is_said_by_colour_alone() {
+        use crate::view::theme::Theme;
+        let mut app = machine();
+        app.theme = Theme::Mono;
+        let frame = render(&mut app, 100, 8).join("\n");
+
+        // The state glyph, the fold arrow, and the active-facet marker are all
+        // shapes, so all three survive having no colour at all.
+        assert!(frame.contains('●'), "the state glyph:\n{frame}");
+        assert!(frame.contains('▾'), "the fold arrow:\n{frame}");
+    }
+
+    #[test]
+    fn mono_and_auto_draw_exactly_the_same_characters() {
+        use crate::view::theme::Theme;
+        let mut colourful = machine();
+        let mut plain = machine();
+        plain.theme = Theme::Mono;
+        assert_eq!(
+            render(&mut colourful, 100, 10),
+            render(&mut plain, 100, 10),
+            "colour may add emphasis and must never add information"
+        );
     }
 
     #[test]
