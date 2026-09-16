@@ -139,9 +139,11 @@ ever and two runs of the same machine group identically. Labels appear with a
 ```
 
 That wires the tracked git hooks and runs the environment check. From then on
-the binary on your `PATH` keeps itself current: merging something that changes
-the source reinstalls it, and `yoghurt --version` reports the commit it was
-built from.
+the binary on your `PATH` keeps itself current — **committing** installs what
+you just wrote, and **merging** installs what you just merged, so what you run
+is always what you are looking at. Neither costs anything when the commit did
+not touch the source. `yoghurt --version` reports the commit it was built
+from.
 
 `scripts/task` is the seam every piece of automation talks to — CI and the git
 hooks know only these verbs:
