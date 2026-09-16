@@ -68,6 +68,15 @@ impl App {
     /// Look at this machine.
     #[must_use]
     pub fn new(graph: Graph) -> Self {
+        Self::at(graph, std::time::SystemTime::now())
+    }
+
+    /// Look at a machine read at a particular time.
+    ///
+    /// The cache is older than now, and saying "scanned just now" over a
+    /// two-hour-old answer is the one thing the header must never do.
+    #[must_use]
+    pub fn at(graph: Graph, scanned: std::time::SystemTime) -> Self {
         let now = std::time::SystemTime::now();
         let rows = build(
             &graph,
@@ -81,7 +90,7 @@ impl App {
         Self {
             graph,
             host: hostname(),
-            scanned: now,
+            scanned,
             failure: None,
             scanning: false,
             quit: false,
@@ -114,8 +123,8 @@ impl App {
             Ok(survey) => {
                 // A partial answer replaces a whole one, and says so.
                 self.failure = survey.trouble();
+                self.scanned = survey.scanned;
                 self.graph = survey.graph;
-                self.scanned = std::time::SystemTime::now();
             }
             // Only the walk failing gets here, and then there is no machine to
             // show at all, so the previous answer stands.
@@ -571,7 +580,7 @@ mod tests {
         app.rescan(|| {
             Ok(crate::survey::Survey {
                 graph: machine().graph,
-                failures: Vec::new(),
+                ..Default::default()
             })
         });
 
@@ -600,12 +609,25 @@ mod tests {
     }
 
     #[test]
+    fn a_machine_read_two_hours_ago_does_not_claim_to_be_fresh() {
+        let graph = machine().graph;
+        let earlier = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
+        let app = App::at(graph, earlier);
+        assert_eq!(
+            app.freshness(),
+            "scanned 2h ago",
+            "the one thing the header must never do is say `just now` over a memory"
+        );
+    }
+
+    #[test]
     fn a_partial_rescan_replaces_the_machine_and_says_what_was_missed() {
         let mut app = machine();
         app.rescan(|| {
             Ok(crate::survey::Survey {
                 graph: machine().graph,
                 failures: vec![crate::model::fact::ScanError::new("cargo", "no")],
+                ..Default::default()
             })
         });
         assert_eq!(
@@ -623,7 +645,7 @@ mod tests {
         app.rescan(|| {
             Ok(crate::survey::Survey {
                 graph: machine().graph,
-                failures: Vec::new(),
+                ..Default::default()
             })
         });
         assert!(app.failure.is_none());
@@ -637,7 +659,7 @@ mod tests {
         app.rescan(|| {
             Ok(crate::survey::Survey {
                 graph: machine().graph,
-                failures: Vec::new(),
+                ..Default::default()
             })
         });
         assert!(

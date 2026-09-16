@@ -185,7 +185,13 @@ fn run(action: Action) -> Result<String, String> {
             Ok(plain::table(&read.graph))
         }
         Action::Interface => {
-            run::run(App::new(survey()?.graph)).map_err(|e| e.to_string())?;
+            // The first frame comes from the last scan and says how old it is;
+            // `r` reads the machine again.
+            let start = yoghurt::survey::cached().map_or_else(
+                || survey().map(|read| App::at(read.graph, read.scanned)),
+                |read| Ok(App::at(read.graph, read.scanned)),
+            )?;
+            run::run(start).map_err(|e| e.to_string())?;
             Ok(String::new())
         }
         Action::Screenshot(shot) => Ok(screenshot(&shot)?),
