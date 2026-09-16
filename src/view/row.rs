@@ -401,7 +401,7 @@ impl Sort {
                 dir((a.state, !a.outdated).cmp(&(b.state, !b.outdated))).then_with(by_name)
             }
             Self::Version => match (a.version.as_deref(), b.version.as_deref()) {
-                (Some(x), Some(y)) => dir(x.cmp(y)).then_with(by_name),
+                (Some(x), Some(y)) => dir(compare_versions(x, y)).then_with(by_name),
                 (Some(_), None) => Ordering::Less,
                 (None, Some(_)) => Ordering::Greater,
                 (None, None) => by_name(),
@@ -426,6 +426,56 @@ pub enum Category {
     Library,
     /// On disk, and nothing claims it.
     Unclaimed,
+}
+
+/// Compare two version strings the way a person reads them.
+///
+/// Segment by segment, numerically where both segments are numbers and as text
+/// otherwise — so `1.9` comes before `1.10`, and `1.0-beta` still orders
+/// sensibly against `1.0`.
+///
+/// Deliberately not a semver parser. These versions come from nine ecosystems
+/// and several of them are not semver at all: `2025.0308`, `26.0.2.1`,
+/// `10.47_1`, `v0.23.0`. What they have in common is that the numbers in them
+/// are numbers.
+#[must_use]
+pub fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+
+    let mut left = segments(a);
+    let mut right = segments(b);
+    loop {
+        match (left.next(), right.next()) {
+            (None, None) => return Ordering::Equal,
+            // `1.2` is older than `1.2.1`: a version that stops is the earlier
+            // one, whatever the longer one goes on to say.
+            (None, Some(_)) => return Ordering::Less,
+            (Some(_), None) => return Ordering::Greater,
+            (Some(x), Some(y)) => {
+                let ordering = match (x.parse::<u64>(), y.parse::<u64>()) {
+                    (Ok(x), Ok(y)) => x.cmp(&y),
+                    // A number sorts before a word, so `1.0` precedes
+                    // `1.0-beta` rather than the reverse.
+                    (Ok(_), Err(_)) => Ordering::Less,
+                    (Err(_), Ok(_)) => Ordering::Greater,
+                    (Err(_), Err(_)) => x.cmp(y),
+                };
+                if ordering != Ordering::Equal {
+                    return ordering;
+                }
+            }
+        }
+    }
+}
+
+/// Split a version wherever it stops being one kind of thing.
+///
+/// `2025.0308` is two segments; `10.47_1` is three; `v0.23.0` drops its `v`.
+fn segments(version: &str) -> impl Iterator<Item = &str> {
+    version
+        .trim_start_matches(['v', 'V'])
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|part| !part.is_empty())
 }
 
 /// One thing in the list.
@@ -1416,6 +1466,70 @@ mod tests {
         };
         assert_eq!(heading(&unchecked), "[not checked 1]");
         assert_eq!(heading(&checked), "[current 1]");
+    }
+
+    #[test]
+    fn versions_sort_as_numbers_rather_than_as_text() {
+        use super::compare_versions;
+        use std::cmp::Ordering;
+
+        // Every one of these was ordered wrongly before.
+        for (older, newer) in [
+            ("1.3.1", "1.12.4"),
+            ("2.16.0", "10.4.0"),
+            ("9.0.1", "10.0.0"),
+            ("1.9.1", "1.9.14"),
+            ("2.16.0", "126.1.2"),
+        ] {
+            assert_eq!(
+                compare_versions(older, newer),
+                Ordering::Less,
+                "{older} < {newer}"
+            );
+            assert_eq!(
+                compare_versions(newer, older),
+                Ordering::Greater,
+                "{newer} > {older}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_version_that_stops_early_is_the_older_one() {
+        use super::compare_versions;
+        use std::cmp::Ordering;
+        assert_eq!(compare_versions("1.2", "1.2.1"), Ordering::Less);
+        assert_eq!(compare_versions("1.2.0", "1.2"), Ordering::Greater);
+    }
+
+    #[test]
+    fn a_release_beats_a_prerelease_of_the_same_number() {
+        use super::compare_versions;
+        use std::cmp::Ordering;
+        assert_eq!(compare_versions("1.0", "1.0-beta"), Ordering::Less);
+        assert_eq!(compare_versions("1.0-beta", "1.0-rc"), Ordering::Less);
+    }
+
+    #[test]
+    fn the_shapes_nine_ecosystems_actually_use_all_order() {
+        use super::compare_versions;
+        use std::cmp::Ordering;
+        // Homebrew revisions, cask dates, go's v prefix, java's four parts.
+        assert_eq!(compare_versions("10.47_1", "10.48"), Ordering::Less);
+        assert_eq!(compare_versions("2025.0308", "2026.0101"), Ordering::Less);
+        assert_eq!(compare_versions("v0.23.0", "v0.24.0"), Ordering::Less);
+        assert_eq!(compare_versions("26.0.2.1", "26.0.3"), Ordering::Less);
+        assert_eq!(compare_versions("1.2.3", "1.2.3"), Ordering::Equal);
+    }
+
+    #[test]
+    fn sorting_a_real_column_puts_them_in_the_order_a_person_expects() {
+        let mut versions = vec!["10.4.0", "1.12.4", "2.16.0", "1.3.1", "126.1.2", "9.0.1"];
+        versions.sort_by(|a, b| super::compare_versions(a, b));
+        assert_eq!(
+            versions,
+            vec!["1.3.1", "1.12.4", "2.16.0", "9.0.1", "10.4.0", "126.1.2"]
+        );
     }
 
     #[test]
