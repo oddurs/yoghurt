@@ -2,13 +2,14 @@
 id: 28
 title: Read go, gem, pipx and uv
 type: feature
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 9
 - 24
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p1
 effort: m
 area: source

@@ -13,6 +13,7 @@ pub mod homebrew;
 pub mod macos;
 pub mod node;
 pub mod taxonomy;
+pub mod tools;
 pub mod walk;
 
 use std::fs;

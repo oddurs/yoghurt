@@ -8,7 +8,7 @@
 use crate::config::Config;
 use crate::model::fact::Source as _;
 use crate::source::taxonomy::{self, Subject};
-use crate::{Applications, Cargo, Graph, Homebrew, Node, Rustup, Walk};
+use crate::{Applications, Cargo, Gem, Go, Graph, Homebrew, Node, PythonTools, Rustup, Walk};
 
 /// Read every source and assemble the machine.
 ///
@@ -45,6 +45,9 @@ fn read(check_updates: bool) -> Result<Graph, String> {
         Rustup::from_environment().map(|s| Box::new(s) as Box<dyn crate::model::fact::Source>),
         Some(Box::new(Applications::from_environment()) as Box<dyn crate::model::fact::Source>),
         Some(Box::new(Node::from_environment()) as Box<dyn crate::model::fact::Source>),
+        Go::from_environment().map(|s| Box::new(s) as Box<dyn crate::model::fact::Source>),
+        Some(Box::new(Gem::from_environment()) as Box<dyn crate::model::fact::Source>),
+        Some(Box::new(PythonTools::from_environment()) as Box<dyn crate::model::fact::Source>),
     ]
     .into_iter()
     .flatten()
