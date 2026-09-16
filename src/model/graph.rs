@@ -265,6 +265,13 @@ impl Graph {
         self.dependents.get(id).unwrap_or(&NONE)
     }
 
+    /// Every symlink anything resolved, and what it points at.
+    pub fn links(&self) -> impl Iterator<Item = (&Path, &Path)> {
+        self.resolves
+            .iter()
+            .map(|(link, target)| (link.as_path(), target.as_path()))
+    }
+
     /// What this path points at, if it is a symlink anything resolved.
     #[must_use]
     pub fn target_of(&self, path: &Path) -> Option<&Path> {

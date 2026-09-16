@@ -42,6 +42,15 @@ pub fn claim_with(graph: &Graph, ask: fn(&Path) -> Option<String>) -> Vec<Fact> 
         .unclaimed()
         .into_iter()
         .filter(|path| home.as_ref().is_none_or(|home| !path.starts_with(home)))
+        // A link to something already owned needs no receipt: whoever owns the
+        // target owns what points at it, which is what `owners_of` already does
+        // for Homebrew's `bin` links. Asking `pkgutil` about the link would
+        // fail anyway — a receipt records the real path.
+        .filter(|path| {
+            graph
+                .target_of(path)
+                .is_none_or(|t| graph.owners_of(t).is_empty())
+        })
         .map(Path::to_owned)
         .take(LIMIT)
         .collect();
@@ -86,15 +95,44 @@ pub fn claim_with(graph: &Graph, ask: fn(&Path) -> Option<String>) -> Vec<Fact> 
             });
         }
         facts.push(Fact::Owns {
-            package: id,
-            artifact: path,
+            package: id.clone(),
+            artifact: path.clone(),
         });
+
+        // Anything pointing at what was just claimed belongs to it too, so a
+        // link on `PATH` stops reading as unclaimed. A receipt records the real
+        // path and never the link, so asking about the link would fail.
+        for (link, target) in graph.links() {
+            if target == path {
+                facts.push(Fact::Owns {
+                    package: id.clone(),
+                    artifact: link.to_owned(),
+                });
+            }
+        }
     }
     facts
 }
 
 /// Which receipt claims this path, if any.
+///
+/// Asked twice when it has to be: once as written, and once resolved. A receipt
+/// records the path the installer wrote, and `/Library/TeX/texbin` is a symlink
+/// to `/usr/local/texlive/…` — so all 34 files under it are perfectly ordinary
+/// files whose *parent* is a link, and nothing about the path itself says so.
 fn owner_of(path: &Path) -> Option<String> {
+    if let Some(id) = ask_pkgutil(path) {
+        return Some(id);
+    }
+    let real = std::fs::canonicalize(path).ok()?;
+    if real == path {
+        return None;
+    }
+    ask_pkgutil(&real)
+}
+
+/// One question for `pkgutil`.
+fn ask_pkgutil(path: &Path) -> Option<String> {
     let output = Command::new("pkgutil")
         .arg("--file-info")
         .arg(path)
@@ -176,6 +214,45 @@ mod tests {
             .filter(|f| matches!(f, Fact::Owns { .. }))
             .count();
         assert_eq!(owns, 2);
+    }
+
+    #[test]
+    fn a_link_to_something_claimed_is_claimed_too() {
+        let linked = Graph::from_facts([
+            Fact::Artifact {
+                path: PathBuf::from("/usr/local/texlive/bin/tex"),
+            },
+            Fact::Resolves {
+                link: PathBuf::from("/Library/TeX/texbin/tex"),
+                target: PathBuf::from("/usr/local/texlive/bin/tex"),
+            },
+        ]);
+        let graph = Graph::from_facts(claim_with(&linked, stub));
+        let id = PackageId::new(NAME, "org.tug.mactex.basictex2025");
+        assert_eq!(
+            graph.owners_of(Path::new("/Library/TeX/texbin/tex")),
+            vec![&id],
+            "a receipt records the real path; the link belongs to it just the same"
+        );
+    }
+
+    #[test]
+    fn a_link_is_not_asked_about_when_its_target_already_has_an_owner() {
+        let owned = Graph::from_facts([
+            Fact::Owns {
+                package: PackageId::new("homebrew", "ripgrep"),
+                artifact: PathBuf::from("/opt/homebrew/Cellar/ripgrep/15/bin/rg"),
+            },
+            Fact::Resolves {
+                link: PathBuf::from("/usr/local/bin/rg"),
+                target: PathBuf::from("/opt/homebrew/Cellar/ripgrep/15/bin/rg"),
+            },
+        ]);
+        assert_eq!(
+            claim_with(&owned, explode_owned),
+            Vec::new(),
+            "whoever owns the target owns what points at it"
+        );
     }
 
     #[test]
