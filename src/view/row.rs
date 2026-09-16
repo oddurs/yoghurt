@@ -12,7 +12,7 @@ use std::time::{Duration, SystemTime};
 
 use crate::model::fact::PackageId;
 use crate::model::graph::Graph;
-use crate::model::question::Provenance;
+use crate::model::question::{Provenance, is_system};
 
 /// What a row says about the thing it names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -512,21 +512,6 @@ pub enum Row {
     Item(Box<Item>),
 }
 
-/// Prefixes macOS itself owns.
-///
-/// Nothing claims `/usr/bin/awk`, which makes it an orphan by the letter of the
-/// model and noise by any useful measure. The honest fix is a system source
-/// that claims these the way Homebrew claims the Cellar.
-const SYSTEM_PREFIXES: &[&str] = &[
-    "/usr/bin",
-    "/usr/sbin",
-    "/usr/libexec",
-    "/bin",
-    "/sbin",
-    "/System",
-    "/Library",
-];
-
 /// Everything worth showing, grouped and flattened.
 ///
 /// `now` is passed rather than read, so grouping by age is testable.
@@ -686,13 +671,6 @@ fn items(graph: &Graph) -> Vec<Item> {
             }),
     );
     items
-}
-
-/// Whether macOS itself put this here.
-fn is_system(path: &std::path::Path) -> bool {
-    SYSTEM_PREFIXES
-        .iter()
-        .any(|prefix| path.starts_with(prefix))
 }
 
 #[cfg(test)]

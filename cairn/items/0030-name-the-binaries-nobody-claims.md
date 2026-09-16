@@ -2,13 +2,14 @@
 id: 30
 title: Name the binaries nobody claims
 type: feature
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 24
 - 29
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p1
 effort: m
 area: source

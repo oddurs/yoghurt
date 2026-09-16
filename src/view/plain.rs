@@ -4,26 +4,9 @@
 //! and free of escapes, so `yoghurt | awk` works.
 
 use std::fmt::Write as _;
-use std::path::Path;
 
 use crate::model::graph::Graph;
-use crate::model::question::Provenance;
-
-/// Prefixes macOS itself owns.
-///
-/// Nothing claims `/usr/bin/awk`, which makes it an orphan by the letter of the
-/// model and noise by any useful measure — there are over a thousand of them
-/// against thirty-five real ones. The honest fix is a system source that claims
-/// these the way Homebrew claims the Cellar; until then they are filtered here.
-const SYSTEM_PREFIXES: &[&str] = &[
-    "/usr/bin",
-    "/usr/sbin",
-    "/usr/libexec",
-    "/bin",
-    "/sbin",
-    "/System",
-    "/Library",
-];
+use crate::model::question::{Provenance, is_system};
 
 const UNITS: [&str; 5] = ["B", "K", "M", "G", "T"];
 
@@ -93,13 +76,6 @@ pub fn table(graph: &Graph) -> String {
         );
     }
     out
-}
-
-/// Whether macOS itself put this here.
-fn is_system(path: &Path) -> bool {
-    SYSTEM_PREFIXES
-        .iter()
-        .any(|prefix| path.starts_with(prefix))
 }
 
 /// Bytes, at the precision a person reads rather than the one a computer holds.
