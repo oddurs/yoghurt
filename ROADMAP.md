@@ -69,7 +69,7 @@ Every package manager on the machine, not just Homebrew — and it opens
 
 ## v0.3 — Contention
 
-`#·········` 8% · 1 of 13 done · due 2027-01-12
+`###·······` 23% · 3 of 13 done · due 2027-01-12
 
 The Path view: which of the 592 binaries on your PATH actually wins when you
 
@@ -84,13 +84,13 @@ The Path view: which of the 592 binaries on your PATH actually wins when you
 - [ ] `0045` Let the machine's owner define their own facets <sup>feature · p2 · config</sup>
 - [ ] `0063` Mark items and act on a set of them <sup>feature · p2 · list</sup>
 - [ ] `0082` Upgrade what is out of date <sup>feature · p1 · cli</sup>
-- [ ] `0084` Thirty-two gigabytes are invisible <sup>bug · p0 · source</sup>
-- [ ] `0085` The Cellar walk is a third of the scan and single threaded <sup>chore · p1 · source</sup>
 - [ ] `0086` A receipt claims a file but not the link to it <sup>bug · p2 · source</sup>
 
 ### done
 
 - [x] `0083` Versions sort as text rather than as numbers <sup>bug · p1 · list</sup>
+- [x] `0084` Thirty-two gigabytes are invisible <sup>bug · p0 · source</sup>
+- [x] `0085` The Cellar walk is a third of the scan and single threaded <sup>chore · p1 · source</sup>
 
 ## v0.4 — The chart
 

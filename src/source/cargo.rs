@@ -16,7 +16,7 @@ use std::process::Command;
 use serde::Deserialize;
 
 use crate::model::fact::{Fact, PackageId, ScanError, Source};
-use crate::source::{children, size_of};
+use crate::source::{children, size_of, size_of_each};
 
 /// Binaries rustup puts in `~/.cargo/bin`.
 ///
@@ -322,7 +322,11 @@ impl Source for Rustup {
     fn scan(&self) -> Result<Vec<Fact>, ScanError> {
         let mut facts = Vec::new();
 
-        for toolchain in children(&self.home.join("toolchains")) {
+        // Eight toolchains at a gigabyte each, measured together. One at a
+        // time this was 3.3 seconds, which is why it used to report nothing.
+        let toolchains = children(&self.home.join("toolchains"));
+        let sizes = size_of_each(&toolchains);
+        for (toolchain, bytes) in toolchains.into_iter().zip(sizes) {
             let Some(name) = toolchain.file_name().and_then(|n| n.to_str()) else {
                 continue;
             };
@@ -334,8 +338,10 @@ impl Source for Rustup {
             facts.push(Fact::Wanted {
                 package: id.clone(),
             });
-            // Toolchains are gigabytes and there are usually several, so they
-            // are not measured here. 0031 makes that affordable.
+            facts.push(Fact::Size {
+                artifact: toolchain.clone(),
+                bytes,
+            });
             facts.push(Fact::Owns {
                 package: id,
                 artifact: toolchain,
