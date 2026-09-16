@@ -2,12 +2,13 @@
 id: 36
 title: Test every adapter against a fixture tree
 type: chore
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 14
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p0
 effort: m
 area: testing
