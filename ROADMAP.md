@@ -41,13 +41,12 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`######····` 53% · 10 of 19 done · due 2026-12-01
+`######····` 58% · 11 of 19 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
 ### backlog
 
-- [ ] `0027` Read global npm, pnpm and yarn packages <sup>feature · p0 · source</sup>
 - [ ] `0028` Read go, gem, pipx and uv <sup>feature · p1 · source</sup>
 - [ ] `0030` Name the binaries nobody claims <sup>feature · p1 · source</sup>
 - [ ] `0031` Open from cache and refresh behind you <sup>feature · p0 · scan</sup>
@@ -62,6 +61,7 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [x] `0024` How do you identify a binary nobody claims? <sup>spike · p0 · source</sup>
 - [x] `0025` Is shadowing common enough to deserve a view? <sup>spike · p0 · path</sup>
 - [x] `0026` Read cargo and rustup <sup>feature · p0 · source</sup>
+- [x] `0027` Read global npm, pnpm and yarn packages <sup>feature · p0 · source</sup>
 - [x] `0029` Read application bundles and who signed them <sup>feature · p0 · source</sup>
 - [x] `0033` Group the list by role, size and age <sup>feature · p1 · list</sup>
 - [x] `0073` Claim macOS applications so they stop reading as orphans <sup>feature · p0 · source</sup>
