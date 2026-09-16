@@ -2,13 +2,14 @@
 id: 19
 title: Drive every one of those with the mouse
 type: feature
-status: backlog
+status: done
 milestone: v0.1
+assignee: Oddur Sigurdsson
 depends_on:
 - 16
 - 17
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p0
 effort: l
 area: mouse

@@ -45,6 +45,10 @@ pub struct App {
     pub mode: Mode,
     /// Whether detail is showing, and how far down it is scrolled.
     pub detail: Option<usize>,
+    /// What was drawn where, for the frame now on screen.
+    pub hits: crate::view::hit::Hits,
+    /// Which row the pointer is over, if any.
+    pub hovered: Option<usize>,
 }
 
 /// What a keypress does right now.
@@ -92,6 +96,8 @@ impl App {
             filter: Filter::default(),
             mode: Mode::default(),
             detail: None,
+            hits: crate::view::hit::Hits::default(),
+            hovered: None,
         }
     }
 
@@ -213,6 +219,25 @@ impl App {
             self.detail = Some(0);
         } else {
             self.toggle_group();
+        }
+    }
+
+    /// Put the cursor on a row the pointer chose.
+    ///
+    /// Clicking a heading folds it, the same as `space`, because that is what
+    /// the arrow on it says it will do.
+    pub fn click_row(&mut self, index: usize) {
+        if index >= self.rows.len() {
+            return;
+        }
+        self.selected = index;
+        if matches!(self.rows.get(index), Some(Row::Group { .. })) {
+            self.toggle_group();
+        } else if self.detail.is_some() {
+            // Opening detail on a click would cover the list somebody is
+            // pointing at. Selecting is what a single click means; detail that
+            // is already open simply follows.
+            self.detail = Some(0);
         }
     }
 

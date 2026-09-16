@@ -7,7 +7,12 @@
 use std::io;
 use std::time::Duration;
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
+    MouseEventKind,
+};
+
+use crate::view::hit::Hit;
 
 use crate::view::app::App;
 use crate::view::term::Screen;
@@ -30,15 +35,17 @@ pub fn run(mut app: App) -> io::Result<()> {
         // and the footer.
         let height = usize::from(screen.area()?.height).saturating_sub(4);
         app.scroll_into_view(height);
-        screen.draw(|frame| ui::draw(frame, &app))?;
+        screen.draw(|frame| ui::draw(frame, &mut app))?;
 
         if screen.interrupted() {
             break;
         }
-        if event::poll(TICK)?
-            && let Event::Key(key) = event::read()?
-        {
-            handle(&mut app, key, height);
+        if event::poll(TICK)? {
+            match event::read()? {
+                Event::Key(key) => handle(&mut app, key, height),
+                Event::Mouse(mouse) => point(&mut app, mouse, height),
+                _ => {}
+            }
         }
     }
     Ok(())
@@ -113,13 +120,74 @@ pub fn handle(app: &mut App, key: KeyEvent, page: usize) {
     }
 }
 
+/// What the pointer does.
+///
+/// Every gesture here has a key that does the same thing, and every key that
+/// matters has something on screen to point at. Neither half is an afterthought
+/// bolted onto the other.
+pub fn point(app: &mut App, mouse: MouseEvent, page: usize) {
+    let what = app.hits.at(mouse.column, mouse.row).cloned();
+
+    match mouse.kind {
+        // Hover is tracked, not just clicks. Without it the pointer gives no
+        // feedback until it commits to something.
+        MouseEventKind::Moved => {
+            app.hovered = match what {
+                Some(Hit::Row(index)) => Some(index),
+                _ => None,
+            };
+        }
+        MouseEventKind::Down(MouseButton::Left) => match what {
+            Some(Hit::Row(index)) => app.click_row(index),
+            Some(Hit::Facet(label)) => {
+                if let Some(facet) = crate::view::row::Facet::from_label(&label) {
+                    app.toggle_facet(facet);
+                }
+            }
+            Some(Hit::Axis) => app.cycle_axis(),
+            Some(Hit::Sort) => app.cycle_sort(),
+            // A key in the footer does exactly what pressing it does, rather
+            // than a second implementation that can drift from the first.
+            Some(Hit::Key(c)) => {
+                handle(
+                    app,
+                    KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE),
+                    page,
+                );
+            }
+            Some(Hit::Detail) | None => {}
+        },
+        // Double-click opens what a single click selected.
+        MouseEventKind::Down(MouseButton::Right) => {
+            if let Some(Hit::Row(index)) = what {
+                app.click_row(index);
+                app.toggle_detail();
+            }
+        }
+        MouseEventKind::ScrollDown => scroll(app, 3, what.as_ref()),
+        MouseEventKind::ScrollUp => scroll(app, -3, what.as_ref()),
+        _ => {}
+    }
+}
+
+/// Scrolling belongs to whatever the pointer is over.
+fn scroll(app: &mut App, delta: isize, what: Option<&Hit>) {
+    if matches!(what, Some(Hit::Detail)) {
+        app.scroll_detail(delta);
+    } else {
+        app.move_by(delta);
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::handle;
+    use super::{handle, point};
     use crate::model::fact::{Fact, PackageId};
     use crate::model::graph::Graph;
     use crate::view::app::App;
-    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+    use crossterm::event::{
+        KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+    };
 
     fn machine() -> App {
         let mut facts = Vec::new();
@@ -334,6 +402,131 @@ mod tests {
         press(&mut app, KeyCode::PageDown);
         assert_eq!(app.selected, row, "the cursor stays put");
         assert_eq!(app.detail, Some(2), "the pane scrolls instead");
+    }
+
+    use crate::view::testkit::render;
+
+    /// A frame has to have been drawn before anything can be pointed at, which
+    /// is the whole design: if it was not drawn, it cannot be clicked.
+    fn drawn(app: &mut App, width: u16, height: u16) {
+        let _ = render(app, width, height);
+    }
+
+    fn at(kind: MouseEventKind, column: u16, row: u16) -> MouseEvent {
+        MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        }
+    }
+
+    fn click(app: &mut App, column: u16, row: u16) {
+        point(
+            app,
+            at(MouseEventKind::Down(MouseButton::Left), column, row),
+            4,
+        );
+    }
+
+    #[test]
+    fn nothing_can_be_clicked_before_it_has_been_drawn() {
+        let mut app = machine();
+        click(&mut app, 10, 5);
+        assert_eq!(app.selected, 0, "no frame, no regions, no targets");
+    }
+
+    #[test]
+    fn clicking_a_row_selects_it() {
+        let mut app = machine();
+        drawn(&mut app, 100, 12);
+        // Header, strip, rule, then the list: the heading, then the first item.
+        click(&mut app, 10, 4);
+        assert_eq!(app.selected, 1);
+    }
+
+    #[test]
+    fn clicking_a_heading_folds_it_the_way_its_arrow_says_it_will() {
+        let mut app = machine();
+        drawn(&mut app, 100, 12);
+        let before = app.rows.len();
+        click(&mut app, 10, 3);
+        assert!(app.rows.len() < before, "the arrow on it says fold");
+    }
+
+    #[test]
+    fn clicking_a_count_in_the_strip_filters_by_it() {
+        let mut app = machine();
+        drawn(&mut app, 100, 12);
+        click(&mut app, 2, 1);
+        assert_eq!(
+            app.filter.facet,
+            Some(crate::view::row::Facet::Wanted),
+            "the summary is the navigation"
+        );
+    }
+
+    #[test]
+    fn clicking_the_rule_changes_the_grouping() {
+        use crate::view::row::Axis;
+        let mut app = machine();
+        drawn(&mut app, 100, 12);
+        click(&mut app, 4, 2);
+        assert_ne!(app.axis, Axis::Source);
+    }
+
+    #[test]
+    fn clicking_a_key_in_the_footer_does_what_pressing_it_does() {
+        let mut app = machine();
+        let mut pressed = machine();
+        drawn(&mut app, 100, 12);
+
+        // `g` in the footer, and `g` on the keyboard.
+        let footer = 11;
+        click(&mut app, 30, footer);
+        press(&mut pressed, KeyCode::Char('g'));
+        assert_eq!(app.axis, pressed.axis, "one implementation, not two");
+    }
+
+    #[test]
+    fn hovering_a_row_marks_it_without_selecting_it() {
+        let mut app = machine();
+        drawn(&mut app, 100, 12);
+        point(&mut app, at(MouseEventKind::Moved, 10, 5), 4);
+        assert_eq!(app.hovered, Some(2));
+        assert_eq!(app.selected, 0, "pointing at something is not choosing it");
+    }
+
+    #[test]
+    fn the_pointer_leaving_the_list_clears_the_mark() {
+        let mut app = machine();
+        drawn(&mut app, 100, 12);
+        point(&mut app, at(MouseEventKind::Moved, 10, 5), 4);
+        point(&mut app, at(MouseEventKind::Moved, 10, 0), 4);
+        assert_eq!(app.hovered, None);
+    }
+
+    #[test]
+    fn the_wheel_moves_three_rows() {
+        let mut app = machine();
+        drawn(&mut app, 100, 12);
+        point(&mut app, at(MouseEventKind::ScrollDown, 10, 5), 4);
+        assert_eq!(app.selected, 3);
+        point(&mut app, at(MouseEventKind::ScrollUp, 10, 5), 4);
+        assert_eq!(app.selected, 0);
+    }
+
+    #[test]
+    fn the_wheel_over_detail_scrolls_detail_rather_than_the_list() {
+        let mut app = machine();
+        app.move_by(1);
+        app.toggle_detail();
+        drawn(&mut app, 120, 12);
+        let row = app.selected;
+
+        point(&mut app, at(MouseEventKind::ScrollDown, 100, 6), 4);
+        assert_eq!(app.selected, row, "the list stays put");
+        assert_eq!(app.detail, Some(3), "the pane moves");
     }
 
     #[test]

@@ -208,7 +208,7 @@ fn screenshot(shot: &Shot) -> Result<String, String> {
         app.toggle_detail();
     }
     app.scroll_into_view(usize::from(shot.height).saturating_sub(4));
-    Ok(testkit::render(&app, shot.width, shot.height).join("\n") + "\n")
+    Ok(testkit::render(&mut app, shot.width, shot.height).join("\n") + "\n")
 }
 
 /// The version, and the commit it came from when there is one.

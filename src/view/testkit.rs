@@ -20,7 +20,7 @@ use crate::view::app::App;
 /// Panics if the in-memory backend fails, which it cannot: there is no
 /// terminal to be wrong about.
 #[must_use]
-pub fn render(app: &App, width: u16, height: u16) -> Vec<String> {
+pub fn render(app: &mut App, width: u16, height: u16) -> Vec<String> {
     let mut terminal =
         Terminal::new(TestBackend::new(width, height)).expect("a test backend cannot fail");
     terminal
@@ -45,8 +45,8 @@ mod tests {
 
     #[test]
     fn the_harness_needs_no_terminal_and_no_package_manager() {
-        let app = App::new(Graph::from_facts([]));
-        let frame = render(&app, 40, 5);
+        let mut app = App::new(Graph::from_facts([]));
+        let frame = render(&mut app, 40, 5);
         assert_eq!(frame.len(), 5);
         assert!(frame.iter().all(|line| line.chars().count() == 40));
     }
