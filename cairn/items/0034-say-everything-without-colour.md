@@ -2,12 +2,13 @@
 id: 34
 title: Say everything without colour
 type: feature
-status: backlog
+status: done
 milestone: v0.2
+assignee: Oddur Sigurdsson
 depends_on:
 - 17
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-15
 priority: p1
 effort: s
 area: theme

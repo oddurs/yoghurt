@@ -12,4 +12,5 @@ pub mod row;
 pub mod run;
 pub mod term;
 pub mod testkit;
+pub mod theme;
 pub mod ui;

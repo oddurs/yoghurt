@@ -49,6 +49,8 @@ pub struct App {
     pub hits: crate::view::hit::Hits,
     /// Which row the pointer is over, if any.
     pub hovered: Option<usize>,
+    /// Which palette is in force.
+    pub theme: crate::view::theme::Theme,
 }
 
 /// What a keypress does right now.
@@ -107,6 +109,7 @@ impl App {
             detail: None,
             hits: crate::view::hit::Hits::default(),
             hovered: None,
+            theme: crate::view::theme::Theme::from_environment(),
         }
     }
 
