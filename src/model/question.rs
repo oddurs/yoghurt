@@ -52,6 +52,36 @@ impl Resolution<'_> {
     }
 }
 
+/// Prefixes macOS itself owns.
+///
+/// Nothing claims `/usr/bin/awk`, which makes it an orphan by the letter of the
+/// model and noise by any useful measure — there are over a thousand of them
+/// against a few dozen that matter.
+///
+/// `/Library` is deliberately **not** here even though `/System/Library` is:
+/// third parties install into `/Library`, and treating it as the system's
+/// hid 36 TeX Live files that a receipt can name perfectly well.
+///
+/// The one piece of policy in the model. It lives here rather than in a view so
+/// that everything asking "is this worth mentioning" gets the same answer.
+pub const SYSTEM_PREFIXES: &[&str] = &[
+    "/usr/bin",
+    "/usr/sbin",
+    "/usr/libexec",
+    "/usr/share",
+    "/bin",
+    "/sbin",
+    "/System",
+];
+
+/// Whether macOS itself put this here.
+#[must_use]
+pub fn is_system(path: &Path) -> bool {
+    SYSTEM_PREFIXES
+        .iter()
+        .any(|prefix| path.starts_with(prefix))
+}
+
 impl Graph {
     /// **Orphan**: an artifact with no owning package.
     ///
@@ -61,6 +91,18 @@ impl Graph {
     #[must_use]
     pub fn is_orphan(&self, path: &Path) -> bool {
         self.artifact(path).is_some() && self.owners_of(path).is_empty()
+    }
+
+    /// Everything on disk that nothing claims and somebody might care about.
+    ///
+    /// Orphans minus what macOS put there, which is the difference between a
+    /// few dozen answers and fourteen hundred.
+    #[must_use]
+    pub fn unclaimed(&self) -> Vec<&Path> {
+        self.artifacts()
+            .filter(|(path, _)| self.is_orphan(path) && !is_system(path))
+            .map(|(path, _)| path)
+            .collect()
     }
 
     /// **Broken**: something refers to this path and it is not there.

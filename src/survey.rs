@@ -157,6 +157,11 @@ fn read(check_updates: bool) -> Result<Survey, String> {
         }
     });
 
+    // Ask who installed what is left. A post-pass rather than a source,
+    // because it is a question about the paths already known to be unclaimed.
+    let leftovers = crate::source::receipts::claim(&Graph::from_facts(facts.clone()));
+    facts.extend(leftovers);
+
     // Saved before the taxonomy runs, so a machine read without the network is
     // still worth keeping.
     let scanned = SystemTime::now();
