@@ -76,7 +76,7 @@ cmd_doctor() {
 		report_ok "core.hooksPath is .githooks"
 	fi
 
-	for hook in commit-msg pre-commit pre-push post-merge; do
+	for hook in commit-msg pre-commit post-commit pre-push post-merge; do
 		if [ -x "$(root)/.githooks/$hook" ]; then
 			report_ok ".githooks/$hook is executable"
 		else

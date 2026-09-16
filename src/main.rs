@@ -28,6 +28,9 @@ Usage:
   yoghurt --help
   yoghurt --version
 
+The binary on your PATH is installed by a git hook on every commit and merge,
+so `yoghurt --version` naming a commit means that is the code you are running.
+
 Choosing a view (with --screenshot):
   --group AXIS     source, role, category, size, age, health
   --sort COLUMN    name, size, age, state, version
