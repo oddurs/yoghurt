@@ -80,7 +80,10 @@ pub fn handle(app: &mut App, key: KeyEvent, page: usize) {
         // Undo one narrowing at a time, and leave only when there is nothing
         // left to undo. Escape should not discard a filter and quit at once.
         KeyCode::Esc => {
-            if !app.clear_one() {
+            // Detail is the narrowest thing open, so it closes first.
+            if app.detail.is_some() {
+                app.detail = None;
+            } else if !app.clear_one() {
                 app.quit = true;
             }
         }
@@ -89,6 +92,10 @@ pub fn handle(app: &mut App, key: KeyEvent, page: usize) {
         KeyCode::Char('!') => app.cycle_facet(),
         KeyCode::Down | KeyCode::Char('j') => app.move_by(1),
         KeyCode::Up | KeyCode::Char('k') => app.move_by(-1),
+        // While detail is open the pages belong to it, because that is the
+        // thing with more in it than fits.
+        KeyCode::PageDown | KeyCode::Char('f') if app.detail.is_some() => app.scroll_detail(page),
+        KeyCode::PageUp | KeyCode::Char('b') if app.detail.is_some() => app.scroll_detail(-page),
         KeyCode::PageDown | KeyCode::Char('f') => app.move_by(page),
         KeyCode::PageUp | KeyCode::Char('b') => app.move_by(-page),
         KeyCode::Home => app.selected = 0,
@@ -100,7 +107,8 @@ pub fn handle(app: &mut App, key: KeyEvent, page: usize) {
         // stay the one that cannot surprise you.
         KeyCode::Char('R') => app.rescan(crate::survey::survey_checking_updates),
         KeyCode::Char('S') => app.reverse_sort(),
-        KeyCode::Char(' ') | KeyCode::Enter => app.toggle_group(),
+        KeyCode::Char(' ') => app.toggle_group(),
+        KeyCode::Enter => app.toggle_detail(),
         _ => {}
     }
 }
@@ -116,10 +124,13 @@ mod tests {
     fn machine() -> App {
         let mut facts = Vec::new();
         for name in ["a", "b", "c", "d"] {
+            let id = PackageId::new("homebrew", name);
             facts.push(Fact::Package {
-                id: PackageId::new("homebrew", name),
+                id: id.clone(),
                 version: Some("1".to_owned()),
             });
+            // Wanted, so that a facet filtering on it has something to show.
+            facts.push(Fact::Wanted { package: id });
         }
         App::new(Graph::from_facts(facts))
     }
@@ -268,6 +279,61 @@ mod tests {
         release.kind = KeyEventKind::Release;
         handle(&mut app, release, 2);
         assert_eq!(app.selected, 0, "one press must not move the cursor twice");
+    }
+
+    #[test]
+    fn enter_opens_detail_on_a_row_and_folds_on_a_heading() {
+        let mut app = machine();
+        assert_eq!(app.selected, 0, "the first row is the heading");
+        press(&mut app, KeyCode::Enter);
+        assert!(app.detail.is_none(), "a heading has no detail, so it folds");
+        assert_eq!(app.rows.len(), 1);
+
+        press(&mut app, KeyCode::Enter);
+        press(&mut app, KeyCode::Down);
+        press(&mut app, KeyCode::Enter);
+        assert!(app.detail.is_some(), "a row does");
+    }
+
+    #[test]
+    fn escape_closes_detail_before_it_touches_the_filter() {
+        let mut app = machine();
+        press(&mut app, KeyCode::Char('!'));
+        press(&mut app, KeyCode::Down);
+        press(&mut app, KeyCode::Enter);
+        assert!(app.detail.is_some());
+
+        press(&mut app, KeyCode::Esc);
+        assert!(
+            app.detail.is_none(),
+            "the narrowest thing open closes first"
+        );
+        assert!(app.filter.facet.is_some(), "and the filter survives");
+    }
+
+    #[test]
+    fn detail_follows_the_cursor_rather_than_stranding_itself() {
+        let mut app = machine();
+        press(&mut app, KeyCode::Down);
+        press(&mut app, KeyCode::Enter);
+        app.scroll_detail(5);
+        press(&mut app, KeyCode::Down);
+        assert_eq!(
+            app.detail,
+            Some(0),
+            "a new subject starts at the top of itself"
+        );
+    }
+
+    #[test]
+    fn paging_belongs_to_detail_while_it_is_open() {
+        let mut app = machine();
+        press(&mut app, KeyCode::Down);
+        let row = app.selected;
+        press(&mut app, KeyCode::Enter);
+        press(&mut app, KeyCode::PageDown);
+        assert_eq!(app.selected, row, "the cursor stays put");
+        assert_eq!(app.detail, Some(2), "the pane scrolls instead");
     }
 
     #[test]
