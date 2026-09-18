@@ -68,6 +68,17 @@ impl Walk {
             directory: directory.to_owned(),
         });
 
+        // A `$PATH` entry can itself be a link to somewhere else — Homebrew's
+        // `opt/<name>` and `/Library/TeX/texbin` both are — and the files
+        // inside it are then ordinary files, not links. Resolving the
+        // directory once catches every entry under it for one `canonicalize`,
+        // where resolving each entry cost 60ms of the 160 this walk used to
+        // take. Without it `mise` appeared twice: once from its keg and once
+        // as an orphan that was the very same file.
+        let resolved = fs::canonicalize(directory)
+            .ok()
+            .filter(|canonical| canonical != directory);
+
         let entries = match fs::read_dir(directory) {
             Ok(entries) => entries,
             Err(error) => {
@@ -100,7 +111,7 @@ impl Walk {
                 Ok(metadata) if is_executable(&metadata) => {
                     facts.push(Fact::Provides {
                         artifact: link.clone(),
-                        command,
+                        command: command.clone(),
                     });
                     facts.push(Fact::Size {
                         artifact: link.clone(),
@@ -111,6 +122,11 @@ impl Walk {
                         && target != link
                     {
                         facts.push(Fact::Resolves { link, target });
+                    } else if let Some(canonical) = &resolved {
+                        facts.push(Fact::Resolves {
+                            target: canonical.join(&command),
+                            link,
+                        });
                     }
                 }
                 Ok(_) => {}
@@ -251,8 +267,22 @@ mod tests {
         m.dir("Applications/Ghostty.app");
         m.dir("Applications/not-an-app");
 
+        // A `$PATH` entry that is itself a link to a keg, holding a plain
+        // file. Homebrew's `opt/<name>/bin` is exactly this shape.
+        m.executable("opt/Cellar/mise/2026.9.6/bin/mise", "binary");
+        symlink(
+            m.path("opt/Cellar/mise/2026.9.6"),
+            m.path("opt").join("mise"),
+        )
+        .expect("link the keg");
+
         let walk = Walk::new(
-            vec![bin, m.path("usr/bin"), m.path("nothing/here")],
+            vec![
+                bin,
+                m.path("usr/bin"),
+                m.path("nothing/here"),
+                m.path("opt/mise/bin"),
+            ],
             vec![m.path("Applications")],
         );
         (m, walk)
@@ -275,6 +305,7 @@ mod tests {
                 (0, m.path("opt/bin")),
                 (1, m.path("usr/bin")),
                 (2, m.path("nothing/here")),
+                (3, m.path("opt/mise/bin")),
             ]
         );
     }
@@ -310,6 +341,24 @@ mod tests {
                     .as_path()
             ),
             "the link is what is on PATH; the target is what is owned"
+        );
+    }
+
+    #[test]
+    fn a_plain_file_inside_a_linked_directory_still_resolves_to_its_keg() {
+        let (m, walk) = machine("linked-dir");
+        let graph = Graph::from_facts(walk.scan().unwrap());
+        // `opt/mise/bin/mise` is not a link; `opt/mise` is. Testing only the
+        // leaf missed this, and `mise` showed up twice — once owned by its
+        // keg, once as an orphan that was the very same file.
+        assert_eq!(
+            graph.target_of(&m.path("opt/mise/bin/mise")),
+            Some(
+                fs::canonicalize(m.path("opt/Cellar/mise/2026.9.6/bin/mise"))
+                    .unwrap()
+                    .as_path()
+            ),
+            "the directory is the link, and everything under it resolves"
         );
     }
 
