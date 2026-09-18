@@ -72,6 +72,18 @@ pub enum Fact {
         package: PackageId,
     },
 
+    /// The operating system shipped this. Nobody chose it and nobody can
+    /// remove it.
+    ///
+    /// Distinct from wanted and from unexplained alike: `/Library/Ruby`'s
+    /// default gems were never requested, so calling them wanted is a lie,
+    /// and they are not residue either, so calling them unexplained sends
+    /// somebody looking for a cause that does not exist.
+    System {
+        /// Which package.
+        package: PackageId,
+    },
+
     /// This package put this path on disk.
     ///
     /// An artifact with no `Owns` fact from anyone is an orphan.

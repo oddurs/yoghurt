@@ -15,13 +15,26 @@ use std::time::SystemTime;
 
 use crate::model::fact::{Fact, PackageId};
 
+/// Why a package is here, as far as the source that reported it knows.
+///
+/// One field rather than two bools: a package cannot be both asked for and
+/// shipped with the operating system, and a pair of bools can represent that
+/// impossible state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Origin {
+    /// Somebody asked for it by name.
+    Requested,
+    /// The operating system shipped it.
+    Shipped,
+}
+
 /// What a package manager records about one package.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Package {
     /// The installed version, where the source reports one.
     pub version: Option<String>,
-    /// Whether somebody asked for this deliberately.
-    pub wanted: bool,
+    /// What the source said about why this is here, where it said anything.
+    pub origin: Option<Origin>,
     /// What it is for, where a source says.
     pub describes: Option<String>,
     /// What something inferred it is, if anything did. A guess, not an
@@ -42,6 +55,20 @@ pub struct Package {
     pub depends_on: BTreeSet<PackageId>,
     /// The subset of `depends_on` the package asked for itself.
     pub declared: BTreeSet<PackageId>,
+}
+
+impl Package {
+    /// Whether somebody asked for this deliberately.
+    #[must_use]
+    pub fn wanted(&self) -> bool {
+        self.origin == Some(Origin::Requested)
+    }
+
+    /// Whether the operating system shipped it.
+    #[must_use]
+    pub fn system(&self) -> bool {
+        self.origin == Some(Origin::Shipped)
+    }
 }
 
 /// Something occupying space on disk.
@@ -101,7 +128,14 @@ impl Graph {
                     }
                 }
                 Fact::Wanted { package } => {
-                    graph.packages.entry(package).or_default().wanted = true;
+                    // Does not overwrite `Shipped`: a source claiming both
+                    // is confused, and the operating system having put it
+                    // there is the answer that leaves nothing to act on.
+                    let entry = graph.packages.entry(package).or_default();
+                    entry.origin.get_or_insert(Origin::Requested);
+                }
+                Fact::System { package } => {
+                    graph.packages.entry(package).or_default().origin = Some(Origin::Shipped);
                 }
                 Fact::Owns { package, artifact } => {
                     graph.artifacts.entry(artifact.clone()).or_default();

@@ -32,6 +32,7 @@ error; the graph reconciles them.
 | --- | --- |
 | `Package` | this exists, at this version |
 | `Wanted` | somebody asked for it — its **absence** is what makes something "pulled in" |
+| `System` | the operating system shipped it; nobody chose it and nobody can remove it |
 | `Owns` | this package put this path on disk |
 | `DependsOn` | this package needs another |
 | `Provides` | this artifact runs under this command name |

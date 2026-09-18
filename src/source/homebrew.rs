@@ -151,8 +151,6 @@ struct Versions {
 struct InstalledKeg {
     version: String,
     #[serde(default)]
-    installed_on_request: bool,
-    #[serde(default)]
     time: Option<i64>,
     #[serde(default)]
     runtime_dependencies: Vec<RuntimeDependency>,
@@ -220,11 +218,41 @@ impl Source for Homebrew {
     }
 }
 
+/// One version directory, and what the Cellar itself says about it.
+struct Keg {
+    path: PathBuf,
+    bytes: u64,
+    /// Whether this was installed because somebody asked for it by name.
+    ///
+    /// Read from the keg's own `INSTALL_RECEIPT.json` rather than from
+    /// `brew info --json`, which omits formulae from untrusted taps entirely
+    /// — so four things installed deliberately looked like residue.
+    requested: bool,
+}
+
 /// One installed thing, and what it costs on disk.
 struct Measured {
     name: String,
-    /// Each version directory under it, with its size.
-    versions: Vec<(PathBuf, u64)>,
+    /// Each version directory under it.
+    versions: Vec<Keg>,
+}
+
+/// The two fields of an install receipt that say why a keg is here.
+#[derive(Debug, Default, Deserialize)]
+struct Receipt {
+    #[serde(default)]
+    installed_on_request: bool,
+}
+
+impl Receipt {
+    /// Every keg Homebrew has written since 2016 carries one; a keg without
+    /// one is simply not known to have been requested.
+    fn read(keg: &Path) -> Self {
+        fs::read_to_string(keg.join("INSTALL_RECEIPT.json"))
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default()
+    }
 }
 
 impl Homebrew {
@@ -257,7 +285,12 @@ impl Homebrew {
                     .into_iter()
                     .map(|path| {
                         let bytes = sizes.next().unwrap_or(0);
-                        (path, bytes)
+                        let requested = Receipt::read(&path).installed_on_request;
+                        Keg {
+                            path,
+                            bytes,
+                            requested,
+                        }
                     })
                     .collect(),
             })
@@ -285,14 +318,21 @@ impl Measured {
             version: linked,
         });
 
-        for (path, bytes) in &self.versions {
+        for keg in &self.versions {
             facts.push(Fact::Owns {
                 package: id.clone(),
-                artifact: path.clone(),
+                artifact: keg.path.clone(),
             });
             facts.push(Fact::Size {
-                artifact: path.clone(),
-                bytes: *bytes,
+                artifact: keg.path.clone(),
+                bytes: keg.bytes,
+            });
+        }
+
+        // The Cellar knows this, so it holds for an untrusted tap too.
+        if self.versions.iter().any(|keg| keg.requested) {
+            facts.push(Fact::Wanted {
+                package: id.clone(),
             });
         }
 
@@ -327,11 +367,6 @@ impl Measured {
             .iter()
             .filter(|i| on_disk.iter().any(|v| v == &i.version))
         {
-            if installed.installed_on_request {
-                facts.push(Fact::Wanted {
-                    package: id.clone(),
-                });
-            }
             if let Some(at) = installed.time.and_then(unix) {
                 facts.push(Fact::InstalledAt {
                     package: id.clone(),
@@ -361,14 +396,14 @@ impl Measured {
         facts.push(Fact::Wanted {
             package: id.clone(),
         });
-        for (path, bytes) in &self.versions {
+        for keg in &self.versions {
             facts.push(Fact::Owns {
                 package: id.clone(),
-                artifact: path.clone(),
+                artifact: keg.path.clone(),
             });
             facts.push(Fact::Size {
-                artifact: path.clone(),
-                bytes: *bytes,
+                artifact: keg.path.clone(),
+                bytes: keg.bytes,
             });
         }
 
@@ -395,7 +430,7 @@ impl Measured {
     fn version_names(&self) -> Vec<String> {
         self.versions
             .iter()
-            .filter_map(|(path, _)| Some(path.file_name()?.to_str()?.to_owned()))
+            .filter_map(|keg| Some(keg.path.file_name()?.to_str()?.to_owned()))
             .collect()
     }
 
@@ -437,6 +472,24 @@ mod tests {
                 .expect("write binary");
             fs::write(root.join("Cellar/fmt/12.1.0/lib/libfmt.a"), "0123").expect("write lib");
             fs::write(root.join("Cellar/fmt/12.2.0/lib/libfmt.a"), "01234567").expect("write lib");
+
+            // Every real keg carries one of these, and it — not the JSON — is
+            // what says whether somebody asked for the thing. `supabase` is
+            // the untrusted tap: requested, and absent from the JSON entirely.
+            // `fmt` deliberately gets none: a keg without a receipt is not
+            // known to have been requested, and its size stays exactly the
+            // bytes written above.
+            for (keg, requested) in [
+                ("Cellar/ripgrep/15.2.0", true),
+                ("Cellar/pcre2/10.48", false),
+                ("Cellar/supabase/2.72.7", true),
+            ] {
+                fs::write(
+                    root.join(keg).join("INSTALL_RECEIPT.json"),
+                    format!("{{\"installed_on_request\":{requested}}}"),
+                )
+                .expect("write receipt");
+            }
             Self(root)
         }
 
@@ -489,12 +542,24 @@ mod tests {
         let prefix = Prefix::new("wanted");
         let graph = Graph::from_facts(prefix.homebrew().scan().unwrap());
         assert!(
-            graph.package(&brew("ripgrep")).unwrap().wanted,
+            graph.package(&brew("ripgrep")).unwrap().wanted(),
             "you typed this"
         );
         assert!(
-            !graph.package(&brew("pcre2")).unwrap().wanted,
+            !graph.package(&brew("pcre2")).unwrap().wanted(),
             "this came with it"
+        );
+    }
+
+    #[test]
+    fn a_formula_from_an_untrusted_tap_is_still_wanted() {
+        let prefix = Prefix::new("tap-wanted");
+        let graph = Graph::from_facts(prefix.homebrew().scan().unwrap());
+        // `brew info --json` omits untrusted taps, so reading wanted from it
+        // made four deliberately installed formulae look like residue.
+        assert!(
+            graph.package(&brew("supabase")).unwrap().wanted(),
+            "the receipt says it was asked for, and the JSON never mentions it"
         );
     }
 
@@ -503,7 +568,7 @@ mod tests {
         let prefix = Prefix::new("cask");
         let graph = Graph::from_facts(prefix.homebrew().scan().unwrap());
         assert!(
-            graph.package(&brew("inkscape")).unwrap().wanted,
+            graph.package(&brew("inkscape")).unwrap().wanted(),
             "a cask is never somebody else's dependency"
         );
     }
@@ -596,8 +661,12 @@ mod tests {
         let graph = Graph::from_facts(blind.scan().unwrap());
         assert!(graph.package(&brew("ripgrep")).is_some());
         assert!(
-            !graph.package(&brew("ripgrep")).unwrap().wanted,
-            "without the JSON we cannot know"
+            graph.package(&brew("ripgrep")).unwrap().wanted(),
+            "the keg's own receipt says so, with no JSON in sight"
+        );
+        assert!(
+            !graph.package(&brew("fmt")).unwrap().wanted(),
+            "no receipt is not the same as a receipt saying yes"
         );
     }
 }

@@ -124,9 +124,36 @@ impl Source for Go {
     }
 }
 
+/// A place gems live, and who put them there.
+pub struct GemRoot {
+    path: PathBuf,
+    /// Whether the operating system shipped this tree.
+    shipped: bool,
+}
+
+impl GemRoot {
+    /// A tree somebody installed into.
+    #[must_use]
+    pub fn installed(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            shipped: false,
+        }
+    }
+
+    /// A tree that came with the operating system.
+    #[must_use]
+    pub fn shipped(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            shipped: true,
+        }
+    }
+}
+
 /// Installed Ruby gems.
 pub struct Gem {
-    roots: Vec<PathBuf>,
+    roots: Vec<GemRoot>,
 }
 
 impl Gem {
@@ -134,19 +161,23 @@ impl Gem {
     pub const NAME: &'static str = "gem";
 
     /// The gem directories on this machine.
+    ///
+    /// `/Library/Ruby` is macOS's own Ruby 2.6 and its default gems — bundler,
+    /// rake, irb and the rest — which arrived with the operating system and
+    /// cannot be uninstalled.
     #[must_use]
     pub fn from_environment() -> Self {
-        let mut roots = vec![PathBuf::from("/Library/Ruby/Gems")];
+        let mut roots = vec![GemRoot::shipped("/Library/Ruby/Gems")];
         if let Some(home) = std::env::var_os("HOME") {
-            roots.push(PathBuf::from(&home).join(".gem/ruby"));
+            roots.push(GemRoot::installed(PathBuf::from(&home).join(".gem/ruby")));
         }
-        roots.push(PathBuf::from("/opt/homebrew/lib/ruby/gems"));
+        roots.push(GemRoot::installed("/opt/homebrew/lib/ruby/gems"));
         Self { roots }
     }
 
     /// Gems somewhere else. Tests point this at a fixture tree.
     #[must_use]
-    pub fn new(roots: Vec<PathBuf>) -> Self {
+    pub fn new(roots: Vec<GemRoot>) -> Self {
         Self { roots }
     }
 }
@@ -174,7 +205,7 @@ impl Source for Gem {
         let mut facts = Vec::new();
         for root in &self.roots {
             // A root holds one directory per ruby version, each with `gems/`.
-            for version_dir in children(root) {
+            for version_dir in children(&root.path) {
                 for gem in children(&version_dir.join("gems")) {
                     let Some(name) = gem.file_name().and_then(|n| n.to_str()) else {
                         continue;
@@ -191,6 +222,11 @@ impl Source for Gem {
                         artifact: gem.clone(),
                         bytes: size_of(&gem),
                     });
+                    if root.shipped {
+                        facts.push(Fact::System {
+                            package: id.clone(),
+                        });
+                    }
                     facts.push(Fact::Owns {
                         package: id,
                         artifact: gem,
@@ -290,9 +326,10 @@ fn version_of(tool: &Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Gem, Go, PythonTools, split_gem};
+    use super::{Gem, GemRoot, Go, PythonTools, split_gem};
     use crate::Graph;
     use crate::model::fact::{PackageId, Source as _};
+    use crate::model::question::Provenance;
     use std::fs;
     use std::path::PathBuf;
 
@@ -355,7 +392,7 @@ mod tests {
             "the only way to tell gopls from a file somebody named gopls"
         );
         assert!(
-            graph.package(&id).unwrap().wanted,
+            graph.package(&id).unwrap().wanted(),
             "go install is always deliberate"
         );
     }
@@ -388,6 +425,23 @@ mod tests {
     }
 
     #[test]
+    fn a_gem_the_system_shipped_is_marked_as_such() {
+        let tree = Tree::new("gem-system");
+        tree.dir("Gems/2.6.0/gems/rake-12.3.3");
+        let shipped = Gem::new(vec![GemRoot::shipped(tree.0.join("Gems"))]);
+        let graph = Graph::from_facts(shipped.scan().unwrap());
+        // Ruby's default gems are requested by nobody and depended on by
+        // nothing, so without this they read as residue to clean up.
+        let id = PackageId::new(Gem::NAME, "rake");
+        assert!(graph.package(&id).unwrap().system());
+        assert_eq!(graph.why(&id), Provenance::System);
+
+        let installed = Gem::new(vec![GemRoot::installed(tree.0.join("Gems"))]);
+        let graph = Graph::from_facts(installed.scan().unwrap());
+        assert!(!graph.package(&id).unwrap().system());
+    }
+
+    #[test]
     fn a_gem_name_may_contain_hyphens() {
         assert_eq!(
             split_gem("net-http-persistent-4.0.2"),
@@ -406,7 +460,7 @@ mod tests {
         let tree = Tree::new("gems");
         tree.dir("Gems/3.4.0/gems/rails-7.1.3");
         tree.dir("Gems/3.4.0/gems/net-http-persistent-4.0.2");
-        let gem = Gem::new(vec![tree.0.join("Gems")]);
+        let gem = Gem::new(vec![GemRoot::installed(tree.0.join("Gems"))]);
 
         let graph = Graph::from_facts(gem.scan().unwrap());
         assert!(graph.package(&PackageId::new("gem", "rails")).is_some());
@@ -459,7 +513,12 @@ mod tests {
     #[test]
     fn none_of_them_being_installed_yields_no_facts_and_no_error() {
         let absent = PathBuf::from("/nonexistent/for/sure");
-        assert_eq!(Gem::new(vec![absent.clone()]).scan().unwrap(), Vec::new());
+        assert_eq!(
+            Gem::new(vec![GemRoot::installed(absent.clone())])
+                .scan()
+                .unwrap(),
+            Vec::new()
+        );
         assert_eq!(
             PythonTools::new(vec![(absent, "pipx")]).scan().unwrap(),
             Vec::new()

@@ -196,7 +196,7 @@ mod tests {
             "a cask's installer put it somewhere Homebrew does not look"
         );
         assert!(
-            graph.package(&id).unwrap().wanted,
+            graph.package(&id).unwrap().wanted(),
             "somebody ran the installer"
         );
     }

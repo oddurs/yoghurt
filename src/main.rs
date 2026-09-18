@@ -18,7 +18,17 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Empty when built outside a git checkout.
 const COMMIT: &str = env!("YOGHURT_COMMIT");
 
-const USAGE: &str = "\
+/// Every value one of the view flags accepts, in the order it cycles.
+///
+/// Generated rather than typed: `--group` silently lost `purpose` when the
+/// axis was added, because a hand-written list has nothing checking it.
+fn choices(labels: impl IntoIterator<Item = &'static str>) -> String {
+    labels.into_iter().collect::<Vec<_>>().join(", ")
+}
+
+fn usage() -> String {
+    format!(
+        "\
 yoghurt — see what is installed on this machine, and where it came from
 
 Usage:
@@ -32,9 +42,9 @@ The binary on your PATH is installed by a git hook on every commit and merge,
 so `yoghurt --version` naming a commit means that is the code you are running.
 
 Choosing a view (with --screenshot):
-  --group AXIS     source, role, category, size, age, health
-  --sort COLUMN    name, size, age, state, version
-  --facet NAME     wanted, pulled in, outdated, unexplained, broken
+  --group AXIS     {group}
+  --sort COLUMN    {sort}
+  --facet NAME     {facet}
   --find TEXT      narrow to what matches
   --detail         open the detail pane on the first row
   --theme NAME     auto, or mono for no colour at all
@@ -43,9 +53,15 @@ Columns:
   NAME  SOURCE  VERSION  ORIGIN  SIZE  PATH
 
   ORIGIN is why it is here: `wanted` if you asked for it, `pulled-in` if it
-  came with something else, `unexplained` if nothing you installed needs it,
-  and `orphan` if no package manager claims it at all.
-";
+  came with something else, `system` if macOS shipped it, `unexplained` if
+  nothing you installed needs it, and `orphan` if no package manager claims
+  it at all.
+",
+        group = choices(Axis::ALL.iter().map(|axis| axis.label())),
+        sort = choices(Sort::ALL.iter().map(|sort| sort.label())),
+        facet = choices(Facet::ALL.iter().map(|facet| facet.label())),
+    )
+}
 
 /// What the arguments asked for.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -68,7 +84,7 @@ fn main() -> ExitCode {
     let text = match parse(&args).and_then(run) {
         Ok(text) => text,
         Err(message) => {
-            eprintln!("yoghurt: {message}\n\n{USAGE}");
+            eprintln!("yoghurt: {message}\n\n{}", usage());
             return ExitCode::FAILURE;
         }
     };
@@ -185,7 +201,7 @@ fn parse(args: &[String]) -> Result<Action, String> {
 /// Returns a human-readable message when a source could not be read.
 fn run(action: Action) -> Result<String, String> {
     match action {
-        Action::Help => Ok(USAGE.to_owned()),
+        Action::Help => Ok(usage()),
         Action::Version => Ok(version()),
         Action::Survey => {
             let read = survey()?;
@@ -251,7 +267,7 @@ fn version() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Action, VERSION, parse, run};
+    use super::{Action, VERSION, parse, run, usage};
     use yoghurt::view::row::{Axis, Facet, Sort};
 
     fn args(items: &[&str]) -> Vec<String> {
@@ -282,6 +298,22 @@ mod tests {
     fn rejects_unknown_arguments() {
         assert!(parse(&args(&["--nope"])).is_err());
         assert!(parse(&args(&["a", "b"])).is_err());
+    }
+
+    #[test]
+    fn the_help_names_every_value_the_view_flags_accept() {
+        let help = usage();
+        // `--group` lost `purpose` for two releases because this list was
+        // typed by hand and nothing compared it to the enum.
+        for label in Axis::ALL.iter().map(|axis| axis.label()) {
+            assert!(help.contains(label), "--group is missing {label}");
+        }
+        for label in Facet::ALL.iter().map(|facet| facet.label()) {
+            assert!(help.contains(label), "--facet is missing {label}");
+        }
+        for label in Sort::ALL.iter().map(|sort| sort.label()) {
+            assert!(help.contains(label), "--sort is missing {label}");
+        }
     }
 
     #[test]

@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::Path;
 
 use crate::model::fact::PackageId;
-use crate::model::graph::Graph;
+use crate::model::graph::{Graph, Package};
 
 /// Why a package is on the machine.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -26,6 +26,13 @@ pub enum Provenance {
     /// the detail pane can print `glib -> gtk+3 -> inkscape` without walking
     /// the graph again.
     PulledIn(Vec<PackageId>),
+
+    /// The operating system shipped it.
+    ///
+    /// Checked before everything else: a default gem under `/Library/Ruby` is
+    /// depended on by nothing and requested by nobody, so without this it
+    /// lands in `Unexplained` and reads as residue somebody should clean up.
+    System,
 
     /// Nothing asked for it and nothing wanted needs it.
     ///
@@ -121,7 +128,10 @@ impl Graph {
     /// explanation rather than the first one found. Cycle-safe.
     #[must_use]
     pub fn why(&self, id: &PackageId) -> Provenance {
-        if self.package(id).is_some_and(|package| package.wanted) {
+        if self.package(id).is_some_and(Package::system) {
+            return Provenance::System;
+        }
+        if self.package(id).is_some_and(Package::wanted) {
             return Provenance::Wanted;
         }
 
@@ -136,7 +146,7 @@ impl Graph {
                     continue;
                 }
                 came_from.insert(next.clone(), current.clone());
-                if self.package(next).is_some_and(|package| package.wanted) {
+                if self.package(next).is_some_and(Package::wanted) {
                     return Provenance::PulledIn(Self::chain(&came_from, id, next));
                 }
                 queue.push_back(next.clone());
