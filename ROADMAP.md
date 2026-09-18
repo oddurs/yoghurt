@@ -41,13 +41,9 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`##########` 95% · 21 of 22 done · due 2026-12-01
+`##########` 100% · 22 of 22 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
-
-### backlog
-
-- [ ] `0093` Show where a package lives, not one file inside it <sup>bug · p2 · list</sup>
 
 ### done
 
@@ -72,6 +68,7 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [x] `0081` Find what is out of date, for every source <sup>feature · p1 · source</sup>
 - [x] `0088` Say 'system' and 'wanted' instead of 'unexplained' <sup>bug · p1 · graph</sup>
 - [x] `0090` Follow symlinked directories into the keg that owns them <sup>bug · p1 · graph</sup>
+- [x] `0093` Show where a package lives, not one file inside it <sup>bug · p2 · list</sup>
 
 ## v0.3 — Contention
 

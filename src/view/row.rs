@@ -7,7 +7,7 @@
 //! renderer about depth.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use crate::model::fact::PackageId;
@@ -649,17 +649,7 @@ fn items(graph: &Graph) -> Vec<Item> {
                 .iter()
                 .filter_map(|path| graph.artifact(path).and_then(|a| a.bytes))
                 .sum();
-            let path = package
-                .version
-                .as_deref()
-                .and_then(|version| {
-                    package
-                        .owns
-                        .iter()
-                        .find(|p| p.file_name().and_then(|n| n.to_str()) == Some(version))
-                })
-                .or_else(|| package.owns.iter().next())
-                .cloned();
+            let path = package.home().map(Path::to_path_buf);
 
             Item {
                 name: id.name.clone(),

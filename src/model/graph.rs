@@ -9,6 +9,7 @@
 //! in whatever order they finish, so every collection here is sorted and the
 //! same set of facts always builds the same graph.
 
+use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -68,6 +69,48 @@ impl Package {
     #[must_use]
     pub fn system(&self) -> bool {
         self.origin == Some(Origin::Shipped)
+    }
+
+    /// Where this package lives, as one path worth showing.
+    ///
+    /// A package owning one artifact is that artifact. A Homebrew formula is
+    /// its keg — matched by name against the version, so a formula with two
+    /// kegs on disk does not report one version beside the other's path.
+    ///
+    /// Everything else is the directory holding the most of its artifacts.
+    /// Picking whichever sorted first said `BasicTeX` lived at
+    /// `/Library/TeX/texbin/afm2tfm`, one binary of 251, next to the 330M the
+    /// whole package costs. The common ancestor is no better: that package
+    /// spans `/Library` and `/usr/local`, so the honest ancestor is `/`.
+    #[must_use]
+    pub fn home(&self) -> Option<&Path> {
+        if let Some(keg) = self.version.as_deref().and_then(|version| {
+            self.owns
+                .iter()
+                .find(|path| path.file_name().and_then(|name| name.to_str()) == Some(version))
+        }) {
+            return Some(keg);
+        }
+        let mut first = self.owns.iter();
+        let one = first.next()?;
+        if first.next().is_none() {
+            return Some(one);
+        }
+
+        let mut counts: BTreeMap<&Path, usize> = BTreeMap::new();
+        for path in &self.owns {
+            if let Some(parent) = path.parent() {
+                *counts.entry(parent).or_default() += 1;
+            }
+        }
+        // `max_by_key` keeps the last of equal maxima, so ties would go to
+        // the deepest path. Reversing the parent breaks them toward the
+        // shallower one instead, which is the more useful answer.
+        counts
+            .into_iter()
+            .max_by_key(|&(parent, count)| (count, Reverse(parent)))
+            .map(|(parent, _)| parent)
+            .or(Some(one))
     }
 }
 
@@ -370,6 +413,76 @@ mod tests {
 
     fn brew(name: &str) -> PackageId {
         PackageId::new("homebrew", name)
+    }
+
+    /// Facts for a package owning exactly these paths.
+    fn owning(version: Option<&str>, paths: &[&str]) -> Vec<Fact> {
+        let id = brew("thing");
+        let mut facts = vec![Fact::Package {
+            id: id.clone(),
+            version: version.map(str::to_owned),
+        }];
+        for path in paths {
+            facts.push(Fact::Owns {
+                package: id.clone(),
+                artifact: PathBuf::from(path),
+            });
+        }
+        facts
+    }
+
+    #[test]
+    fn one_artifact_is_where_the_package_lives() {
+        let graph = Graph::from_facts(owning(None, &["/usr/local/bin/thing"]));
+        assert_eq!(
+            graph.package(&brew("thing")).unwrap().home(),
+            Some(Path::new("/usr/local/bin/thing"))
+        );
+    }
+
+    #[test]
+    fn a_formula_lives_in_the_keg_matching_the_version_it_reports() {
+        let graph = Graph::from_facts(owning(
+            Some("12.2.0"),
+            &[
+                "/opt/homebrew/Cellar/thing/12.1.0",
+                "/opt/homebrew/Cellar/thing/12.2.0",
+            ],
+        ));
+        assert_eq!(
+            graph.package(&brew("thing")).unwrap().home(),
+            Some(Path::new("/opt/homebrew/Cellar/thing/12.2.0")),
+            "not whichever keg sorts first"
+        );
+    }
+
+    #[test]
+    fn many_artifacts_live_where_most_of_them_are() {
+        // BasicTeX owns 251 paths across /Library and /usr/local, so the
+        // common ancestor is `/` and the first by sort order is one binary of
+        // 251. Neither is where the package lives.
+        let graph = Graph::from_facts(owning(
+            None,
+            &[
+                "/Library/TeX/texbin/afm2tfm",
+                "/Library/TeX/texbin/dvipng",
+                "/Library/TeX/texbin/pdftex",
+                "/usr/local/texlive/2025basic/bin/universal-darwin/tex",
+            ],
+        ));
+        assert_eq!(
+            graph.package(&brew("thing")).unwrap().home(),
+            Some(Path::new("/Library/TeX/texbin"))
+        );
+    }
+
+    #[test]
+    fn a_tie_between_directories_goes_to_the_shallower_one() {
+        let graph = Graph::from_facts(owning(None, &["/opt/pkg/one", "/opt/pkg/nested/deep/two"]));
+        assert_eq!(
+            graph.package(&brew("thing")).unwrap().home(),
+            Some(Path::new("/opt/pkg"))
+        );
     }
 
     /// A small machine: ripgrep wants itself, pulls in pcre2, and the command

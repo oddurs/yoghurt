@@ -28,20 +28,7 @@ pub fn table(graph: &Graph) -> String {
             .iter()
             .filter_map(|path| graph.artifact(path).and_then(|a| a.bytes))
             .sum();
-        // The keg that matches the version shown, not whichever sorts first: a
-        // formula with two kegs would otherwise report one version beside the
-        // other one's path.
-        let home = package
-            .version
-            .as_deref()
-            .and_then(|version| {
-                package
-                    .owns
-                    .iter()
-                    .find(|path| path.file_name().and_then(|n| n.to_str()) == Some(version))
-            })
-            .or_else(|| package.owns.iter().next())
-            .map(|path| path.display().to_string());
+        let home = package.home().map(|path| path.display().to_string());
 
         let _ = writeln!(
             out,
