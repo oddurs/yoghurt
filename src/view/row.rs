@@ -19,6 +19,8 @@ use crate::model::question::{Provenance, is_system};
 pub enum State {
     /// Somebody asked for it.
     Fine,
+    /// The operating system shipped it. Nobody chose it; nobody can remove it.
+    System,
     /// A dependency. You did not ask for it.
     PulledIn,
     /// Nothing you installed needs it.
@@ -36,6 +38,8 @@ impl State {
     pub fn glyph(self) -> &'static str {
         match self {
             Self::Fine => "●",
+            // Outline against Fine's solid: present, and not yours.
+            Self::System => "○",
             Self::PulledIn => "◐",
             // Both mean "nothing accounts for this"; the source column tells
             // them apart, so they share a glyph deliberately.
@@ -49,6 +53,7 @@ impl State {
     pub fn label(self) -> &'static str {
         match self {
             Self::Fine => "wanted",
+            Self::System => "system",
             Self::PulledIn => "dep",
             Self::Unexplained => "unneeded",
             Self::Orphan => "orphan",
@@ -140,9 +145,10 @@ impl Axis {
             Self::Role => match item.state {
                 State::Fine => (0, "wanted".to_owned()),
                 State::PulledIn => (1, "pulled in".to_owned()),
-                State::Unexplained => (2, "nothing needs".to_owned()),
-                State::Orphan => (3, "unclaimed".to_owned()),
-                State::Broken => (4, "broken".to_owned()),
+                State::System => (2, "came with macOS".to_owned()),
+                State::Unexplained => (3, "nothing needs".to_owned()),
+                State::Orphan => (4, "unclaimed".to_owned()),
+                State::Broken => (5, "broken".to_owned()),
             },
             Self::Category => match item.category() {
                 Category::Application => (0, "applications".to_owned()),
@@ -179,6 +185,8 @@ impl Axis {
                 (State::Broken, _) => (0, "broken".to_owned()),
                 (_, true) => (1, "outdated".to_owned()),
                 (State::Unexplained | State::Orphan, _) => (2, "unaccounted for".to_owned()),
+                // Nothing to check and nothing to do: macOS updates it.
+                (State::System, _) => (5, "came with macOS".to_owned()),
                 // Current and never-asked are different answers and must not
                 // share a group.
                 (State::Fine | State::PulledIn, _) if item.checked => (3, "current".to_owned()),
@@ -244,58 +252,38 @@ impl Filter {
     }
 }
 
-/// One of the named subsets in the status strip.
-///
-/// Every count on the strip is one of these, so the summary is the navigation:
-/// the commonest question a person has costs one keystroke or one click.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Facet {
-    /// Things you asked for.
-    Wanted,
-    /// Things that came with something else.
-    PulledIn,
-    /// Things with a newer version published.
-    Outdated,
-    /// Things nothing you installed needs.
-    Unexplained,
-    /// Things that are not there.
-    Broken,
+cycling_enum! {
+    /// One of the named subsets in the status strip.
+    ///
+    /// Every count on the strip is one of these, so the summary is the
+    /// navigation: the commonest question a person has costs one keystroke or
+    /// one click.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    Facet {
+        /// Things you asked for.
+        Wanted => "wanted",
+        /// Things that came with something else.
+        PulledIn => "pulled in",
+        /// Things with a newer version published.
+        Outdated => "outdated",
+        /// Things nothing you installed needs.
+        Unexplained => "unexplained",
+        /// Things that are not there.
+        Broken => "broken",
+        /// Things the operating system shipped. Last: the strip drops from the
+        /// end, and this is the one worth losing first.
+        System => "system",
+    }
 }
 
 impl Facet {
-    /// Every facet, in the order the strip shows them.
-    pub const ALL: [Self; 5] = [
-        Self::Wanted,
-        Self::PulledIn,
-        Self::Outdated,
-        Self::Unexplained,
-        Self::Broken,
-    ];
-
-    /// How it is named on the strip.
-    #[must_use]
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Wanted => "wanted",
-            Self::PulledIn => "pulled in",
-            Self::Outdated => "outdated",
-            Self::Unexplained => "unexplained",
-            Self::Broken => "broken",
-        }
-    }
-
-    /// The facet with this name, if there is one.
-    #[must_use]
-    pub fn from_label(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|facet| facet.label() == name)
-    }
-
     /// Whether an item belongs to it.
     #[must_use]
     pub fn matches(self, item: &Item) -> bool {
         match self {
             Self::Wanted => item.state == State::Fine,
             Self::PulledIn => item.state == State::PulledIn,
+            Self::System => item.state == State::System,
             Self::Outdated => item.outdated,
             Self::Unexplained => item.state == State::Unexplained,
             Self::Broken => item.state == State::Broken,
@@ -652,6 +640,7 @@ fn items(graph: &Graph) -> Vec<Item> {
         .map(|(id, package)| {
             let state = match graph.why(id) {
                 Provenance::Wanted => State::Fine,
+                Provenance::System => State::System,
                 Provenance::PulledIn(_) => State::PulledIn,
                 Provenance::Unexplained => State::Unexplained,
             };

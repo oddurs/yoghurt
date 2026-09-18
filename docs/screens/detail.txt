@@ -1,8 +1,8 @@
- yoghurt  Oddurs-MacBook-Pro   300 packages · 5 sources · 12G                          scanned just now 
- 163 wanted   133 pulled in   45 outdated   4 unexplained   2 broken                                    
+ yoghurt  weezer   313 packages · 9 sources · 43G                                      scanned just now 
+ 171 wanted   132 pulled in   44 outdated   0 unexplained   3 broken   10 system                        
 ─ /glib · by source ────────────────────────────────────────────────────────────────────────────────────
- ▾ homebrew                                           2  159M   glib                                    
-  ◐ glib                                               2.88.3  ◐ 2.88.3 · homebrew · 151M               
+ ▾ homebrew                                            2  42M   glib                                    
+  ◐ glib                                               2.88.3  ◐ 2.88.3 · homebrew · 38M                
   ◐ libtool                                             2.6.2  Core application library for C           
                                                                                                         
                                                                 WHY ──────────────────────────────────  

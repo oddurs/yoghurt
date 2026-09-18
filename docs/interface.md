@@ -164,6 +164,7 @@ the red.
 | `●` | fine | Installed, current, claimed by a manager |
 | `↑` | outdated | A newer version is published |
 | `◐` | pulled in | A dependency. You did not ask for it |
+| `○` | system | macOS shipped it. Nothing to do about it, so it is muted |
 | `?` | orphan | On disk or on PATH, no manager claims it |
 | `⊘` | shadowed | Something else with this name wins on PATH |
 | `·` | stale | Not executed in months — *parked; see below* |

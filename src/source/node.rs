@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn a_package_is_always_wanted() {
         let modules = Modules::new("wanted");
-        assert!(modules.graph().package(&npm("prettier")).unwrap().wanted);
+        assert!(modules.graph().package(&npm("prettier")).unwrap().wanted());
     }
 
     #[test]

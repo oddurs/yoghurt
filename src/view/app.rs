@@ -402,11 +402,12 @@ impl App {
     #[must_use]
     pub fn facets(&self) -> Vec<(&'static str, usize)> {
         use crate::model::question::Provenance;
-        let (mut wanted, mut pulled, mut unexplained) = (0, 0, 0);
+        let (mut wanted, mut pulled, mut system, mut unexplained) = (0, 0, 0, 0);
         for (id, _) in self.graph.packages() {
             match self.graph.why(id) {
                 Provenance::Wanted => wanted += 1,
                 Provenance::PulledIn(_) => pulled += 1,
+                Provenance::System => system += 1,
                 Provenance::Unexplained => unexplained += 1,
             }
         }
@@ -423,6 +424,9 @@ impl App {
             ("outdated", outdated),
             ("unexplained", unexplained),
             ("broken", broken),
+            // Last on purpose. A narrow strip drops facets from the end, and
+            // the one nobody needs to act on is the one to lose first.
+            ("system", system),
         ]
     }
 
@@ -552,6 +556,7 @@ mod tests {
                 ("outdated", 1),
                 ("unexplained", 0),
                 ("broken", 1),
+                ("system", 0),
             ]
         );
     }

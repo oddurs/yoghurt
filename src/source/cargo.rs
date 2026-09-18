@@ -500,7 +500,7 @@ mod tests {
             graph
                 .package(&PackageId::new("cargo", "ripgrep"))
                 .unwrap()
-                .wanted
+                .wanted()
         );
     }
 

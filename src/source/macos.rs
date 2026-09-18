@@ -293,7 +293,12 @@ mod tests {
         let disk = Disk::new("wanted");
         let graph = disk.graph();
         for (source, name) in [("app store", "Things3"), ("applications", "Figma")] {
-            assert!(graph.package(&PackageId::new(source, name)).unwrap().wanted);
+            assert!(
+                graph
+                    .package(&PackageId::new(source, name))
+                    .unwrap()
+                    .wanted()
+            );
         }
     }
 

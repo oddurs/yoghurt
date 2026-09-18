@@ -167,6 +167,7 @@ fn facet_role(label: &str) -> Role {
         "pulled in" => Role::PulledIn,
         "outdated" => Role::Outdated,
         "broken" => Role::Broken,
+        "system" => Role::Muted,
         _ => Role::Unaccounted,
     }
 }
@@ -503,6 +504,9 @@ fn state_role(state: State) -> Role {
     match state {
         State::Fine => Role::Wanted,
         State::PulledIn => Role::PulledIn,
+        // Muted on purpose: there is nothing to do about it, so it should
+        // recede behind everything there is something to do about.
+        State::System => Role::Muted,
         State::Unexplained | State::Orphan => Role::Unaccounted,
         State::Broken => Role::Broken,
     }

@@ -80,6 +80,12 @@ fn why(graph: &Graph, item: &Item) -> Vec<Line> {
     let mut out = vec![Line::Section("WHY".to_owned())];
     match graph.why(id) {
         Provenance::Wanted => out.push(Line::Text("  You asked for this.".to_owned())),
+        Provenance::System => {
+            out.push(Line::Text("  It came with macOS.".to_owned()));
+            out.push(Line::Text(
+                "  Nobody installed it and it cannot be removed.".to_owned(),
+            ));
+        }
         Provenance::Unexplained => {
             out.push(Line::Text("  Nothing you installed needs it.".to_owned()));
             out.push(Line::Text(

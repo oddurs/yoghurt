@@ -41,9 +41,14 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`##########` 100% · 19 of 19 done · due 2026-12-01
+`##########` 91% · 20 of 22 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
+
+### backlog
+
+- [ ] `0090` Follow symlinked directories into the keg that owns them <sup>bug · p1 · graph</sup>
+- [ ] `0093` Show where a package lives, not one file inside it <sup>bug · p2 · list</sup>
 
 ### done
 
@@ -66,10 +71,11 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [x] `0079` Classify packages through OpenRouter, strictly opt in <sup>feature · p3 · source</sup>
 - [x] `0080` Rescan without leaving <sup>feature · p1 · scan</sup>
 - [x] `0081` Find what is out of date, for every source <sup>feature · p1 · source</sup>
+- [x] `0088` Say 'system' and 'wanted' instead of 'unexplained' <sup>bug · p1 · graph</sup>
 
 ## v0.3 — Contention
 
-`####······` 36% · 5 of 14 done · due 2027-01-12
+`####······` 31% · 5 of 16 done · due 2027-01-12
 
 The Path view: which of the 592 binaries on your PATH actually wins when you
 
@@ -84,6 +90,8 @@ The Path view: which of the 592 binaries on your PATH actually wins when you
 - [ ] `0045` Let the machine's owner define their own facets <sup>feature · p2 · config</sup>
 - [ ] `0063` Mark items and act on a set of them <sup>feature · p2 · list</sup>
 - [ ] `0082` Upgrade what is out of date <sup>feature · p1 · cli</sup>
+- [ ] `0091` Give a toolchain its own row shape <sup>feature · p2 · list</sup>
+- [ ] `0092` Say which duplicate wins on PATH <sup>feature · p2 · path</sup>
 
 ### done
 

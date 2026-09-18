@@ -19,6 +19,7 @@ pub fn table(graph: &Graph) -> String {
     for (id, package) in graph.packages() {
         let origin = match graph.why(id) {
             Provenance::Wanted => "wanted",
+            Provenance::System => "system",
             Provenance::PulledIn(_) => "pulled-in",
             Provenance::Unexplained => "unexplained",
         };

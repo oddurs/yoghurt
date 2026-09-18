@@ -10,20 +10,20 @@ of it at once, so the honest answer to "what is on this laptop" is a shrug and
 five commands whose output does not line up.
 
 ```
- yoghurt  Oddurs-MacBook-Pro   300 packages · 5 sources · 12G              scanned just now 
- 163 wanted   133 pulled in   45 outdated   4 unexplained   2 broken                        
+ yoghurt  weezer   313 packages · 9 sources · 43G                          scanned just now 
+ 171 wanted   132 pulled in   44 outdated   0 unexplained   3 broken   10 system            
 ─ by role · size↓ ──────────────────────────────────────────────────────────────────────────
- ▾ wanted                                                                        163  3.6G  
-  ● openjdk                                                     26.0.2.1    wanted    379M  
-  ● vercel                                                       59.16.0    wanted    283M  
-  ↑ pandoc                                                           3.9  outdated    263M  
-  ● go                                                            1.27.1    wanted    228M  
-  ● zig                                                         0.16.0_1    wanted    197M  
-  ↑ awscli                                                       2.34.30  outdated    156M  
-  ● mise                                                        2026.9.6    wanted    152M  
-  ● shims                                                              -    wanted    151M  
-  ● node                                                          26.8.2    wanted    141M  
- ↑↓ move  space fold  g group  s sort  / find  ! facet  ↵ detail  r rescan  q quit
+ ▾ wanted                                                                         171  35G  
+  ● iMovie                                                             -    wanted    4.0G  
+  ● Docker                                                        4.61.0    wanted    2.4G  
+  ● stable-aarch64-apple-darwin                                        -    wanted    2.2G  
+  ● Google Chrome                                           153.0.8010.…    wanted    2.1G  
+  ● GarageBand                                                         -    wanted    1.5G  
+  ● Visual Studio Code                                           1.137.0    wanted    1.4G  
+  ● 1.98-aarch64-apple-darwin                                          -    wanted    1.2G  
+  ● 1.96.1-aarch64-apple-darwin                                        -    wanted    1.1G  
+  ● UTM                                                            4.7.5    wanted    1.1G  
+ ↑↓ move  space fold  g group  s sort  / find  ! facet  ↵ detail  r rescan  q quit          
 ```
 
 Three numbers on that screen are the reason this exists. **163 things you asked
@@ -36,11 +36,11 @@ manager can see on its own because each of them only knows its own half.
 Press `↵` on anything and it answers the question a flat list cannot:
 
 ```
- yoghurt  Oddurs-MacBook-Pro   300 packages · 5 sources · 12G                          scanned just now 
- 163 wanted   133 pulled in   45 outdated   4 unexplained   2 broken                                    
+ yoghurt  weezer   313 packages · 9 sources · 43G                                      scanned just now 
+ 171 wanted   132 pulled in   44 outdated   0 unexplained   3 broken   10 system                        
 ─ /glib · by source ────────────────────────────────────────────────────────────────────────────────────
- ▾ homebrew                                           2  159M   glib                                    
-  ◐ glib                                               2.88.3  ◐ 2.88.3 · homebrew · 151M               
+ ▾ homebrew                                            2  42M   glib                                    
+  ◐ glib                                               2.88.3  ◐ 2.88.3 · homebrew · 38M                
   ◐ libtool                                             2.6.2  Core application library for C           
                                                                                                         
                                                                 WHY ──────────────────────────────────  
@@ -48,7 +48,7 @@ Press `↵` on anything and it answers the question a flat list cannot:
                                                                    └ epubcheck  ← you installed this    
                                                                                                         
                                                                 FACTS ────────────────────────────────  
- ↑↓ move  space fold  g group  s sort  / find  ! facet  ↵ detail  r rescan  q quit
+ ↑↓ move  space fold  g group  s sort  / find  ! facet  ↵ detail  r rescan  q quit                      
 ```
 
 `glib` is 151 MB you never asked for. It is here because `epubcheck` is, and
