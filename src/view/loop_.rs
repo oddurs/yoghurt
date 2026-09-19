@@ -132,10 +132,7 @@ pub fn point(app: &mut App, mouse: MouseEvent, page: usize) {
         // Hover is tracked, not just clicks. Without it the pointer gives no
         // feedback until it commits to something.
         MouseEventKind::Moved => {
-            app.hovered = match what {
-                Some(Hit::Row(index)) => Some(index),
-                _ => None,
-            };
+            app.hovered = what;
         }
         MouseEventKind::Down(MouseButton::Left) => match what {
             Some(Hit::Row(index)) => app.click_row(index),
@@ -185,6 +182,7 @@ mod tests {
     use crate::model::fact::{Fact, PackageId};
     use crate::model::graph::Graph;
     use crate::view::app::App;
+    use crate::view::hit::Hit;
     use crossterm::event::{
         KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
     };
@@ -493,7 +491,7 @@ mod tests {
         let mut app = machine();
         drawn(&mut app, 100, 12);
         point(&mut app, at(MouseEventKind::Moved, 10, 5), 4);
-        assert_eq!(app.hovered, Some(2));
+        assert_eq!(app.hovered, Some(Hit::Row(2)));
         assert_eq!(app.selected, 0, "pointing at something is not choosing it");
     }
 
@@ -502,8 +500,35 @@ mod tests {
         let mut app = machine();
         drawn(&mut app, 100, 12);
         point(&mut app, at(MouseEventKind::Moved, 10, 5), 4);
+        // The header is the one band that is not clickable.
         point(&mut app, at(MouseEventKind::Moved, 10, 0), 4);
         assert_eq!(app.hovered, None);
+    }
+
+    #[test]
+    fn the_pointer_is_answered_by_everything_it_can_click() {
+        let mut app = machine();
+        drawn(&mut app, 100, 12);
+        // A facet in the strip, the rule below it, and a key in the footer are
+        // all clickable, and each used to stay silent under the pointer.
+        point(&mut app, at(MouseEventKind::Moved, 2, 1), 4);
+        assert!(
+            matches!(app.hovered, Some(Hit::Facet(_))),
+            "the strip: {:?}",
+            app.hovered
+        );
+        point(&mut app, at(MouseEventKind::Moved, 3, 2), 4);
+        assert!(
+            matches!(app.hovered, Some(Hit::Axis | Hit::Sort)),
+            "the rule: {:?}",
+            app.hovered
+        );
+        point(&mut app, at(MouseEventKind::Moved, 24, 11), 4);
+        assert!(
+            matches!(app.hovered, Some(Hit::Key(_))),
+            "the footer: {:?}",
+            app.hovered
+        );
     }
 
     #[test]

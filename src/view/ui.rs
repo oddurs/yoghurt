@@ -144,20 +144,40 @@ fn draw_strip(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
         let style = Style::new()
             .fg(app.theme.colour(facet_role(label)))
             .add_modifier(Modifier::BOLD);
-        spans.push(Span::styled(
-            count.to_string(),
-            if active {
-                style.add_modifier(Modifier::REVERSED)
-            } else {
-                style
-            },
-        ));
-        spans.push(Span::styled(
-            format!(" {label}{}   ", if active { " ◂" } else { "" }),
-            Style::new().fg(app.theme.colour(Role::Muted)),
-        ));
+        let under = app.hovered.as_ref() == Some(&Hit::Facet(label.to_owned()));
+        if active {
+            // The whole chip reverses, not just the digit. Reversing one
+            // character left a coloured block against a label that still read
+            // as muted as every inactive one, so the strip did not say which
+            // filter was on. A facet has one hue, so the chip can carry it —
+            // unlike a row, where the colours mean different things along it.
+            spans.push(Span::styled(
+                format!("{count} {label} ◂"),
+                pointed(style.add_modifier(Modifier::REVERSED), under),
+            ));
+        } else {
+            spans.push(Span::styled(count.to_string(), pointed(style, under)));
+            spans.push(Span::styled(
+                format!(" {label}"),
+                pointed(Style::new().fg(app.theme.colour(Role::Muted)), under),
+            ));
+        }
+        // Outside the chip, so the highlight ends with the words.
+        spans.push(Span::raw("   "));
     }
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
+}
+
+/// Underline what the pointer is over.
+///
+/// One idiom for "the mouse is here", used by every clickable thing, so the
+/// interface answers the pointer the same way wherever it is pointed.
+fn pointed(style: Style, under: bool) -> Style {
+    if under {
+        style.add_modifier(Modifier::UNDERLINED)
+    } else {
+        style
+    }
 }
 
 /// One hue per facet, used identically wherever the facet appears.
@@ -214,13 +234,23 @@ fn draw_rule(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
             Hit::Sort,
         );
     }
-    frame.render_widget(
-        Paragraph::new(Line::from(Span::styled(
-            rule,
-            Style::new().fg(app.theme.colour(Role::Muted)),
-        ))),
-        area,
-    );
+    // Split at the sort column so the pointer can answer for each separately:
+    // clicking the word changes the sort, clicking anywhere else the axis.
+    let muted = Style::new().fg(app.theme.colour(Role::Muted));
+    let on_axis = app.hovered.as_ref() == Some(&Hit::Axis);
+    let on_sort = app.hovered.as_ref() == Some(&Hit::Sort);
+    let spans = match title.find(app.sort.label()).filter(|_| on_axis || on_sort) {
+        Some(at) => {
+            let end = at + app.sort.label().len();
+            vec![
+                Span::styled(rule[..at].to_owned(), pointed(muted, on_axis)),
+                Span::styled(rule[at..end].to_owned(), pointed(muted, on_sort || on_axis)),
+                Span::styled(rule[end..].to_owned(), pointed(muted, on_axis)),
+            ]
+        }
+        None => vec![Span::styled(rule, pointed(muted, on_axis))],
+    };
+    frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
 /// Below this a detail pane costs the list more than it gives.
@@ -368,7 +398,7 @@ fn draw_list(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
             line_for(
                 row,
                 selected,
-                app.hovered == Some(index),
+                app.hovered.as_ref() == Some(&Hit::Row(index)),
                 area.width,
                 show_source,
                 app.theme,
@@ -397,12 +427,31 @@ fn line_for(
         } => group_line(key, *count, *bytes, *collapsed, width, theme),
         Row::Item(item) => item_line(item, width, show_source, theme),
     };
-    let line = Line::from(spans);
     if selected {
-        line.style(Style::new().add_modifier(Modifier::REVERSED))
-    } else if hovered {
-        // Shown as well as selection: the difference between an interface the
-        // mouse drives and one it merely tolerates.
+        // REVERSED turns each span's foreground into its background, so a row
+        // of differently coloured spans became a bar of differently coloured
+        // blocks: white under the name, dark grey under the size, green under
+        // the glyph. Dropping the colours first makes it one bar.
+        //
+        // Reversing rather than setting a background keeps that bar legible in
+        // any palette — a fixed colour can always collide with the terminal's
+        // own — and nothing is lost, because every state carries a glyph and
+        // the state is written out in words further along the row.
+        let bar = spans.into_iter().map(|span| {
+            let modifier = span.style.add_modifier;
+            Span::styled(span.content, Style::new().add_modifier(modifier))
+        });
+        let mut style = Style::new().add_modifier(Modifier::REVERSED);
+        if hovered {
+            // Shown as well as selection rather than instead of it: pointing
+            // at the row you are already on should still answer.
+            style = style.add_modifier(Modifier::UNDERLINED);
+        }
+        return Line::from(bar.collect::<Vec<_>>()).style(style);
+    }
+
+    let line = Line::from(spans);
+    if hovered {
         line.style(Style::new().add_modifier(Modifier::UNDERLINED))
     } else {
         line
@@ -568,13 +617,17 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect, hits: &mut Hits) {
             );
         }
         used += width;
+        let under = key
+            .chars()
+            .next()
+            .is_some_and(|c| key.chars().count() == 1 && app.hovered == Some(Hit::Key(c)));
         spans.push(Span::styled(
             *key,
-            Style::new().add_modifier(Modifier::BOLD),
+            pointed(Style::new().add_modifier(Modifier::BOLD), under),
         ));
         spans.push(Span::styled(
             format!(" {what}  "),
-            Style::new().fg(app.theme.colour(Role::Muted)),
+            pointed(Style::new().fg(app.theme.colour(Role::Muted)), under),
         ));
     }
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
@@ -607,6 +660,64 @@ mod tests {
                 bytes: 6_500_000,
             },
         ]))
+    }
+
+    #[test]
+    fn the_active_row_is_one_bar_and_not_a_patchwork() {
+        let mut app = machine();
+        app.selected = 1;
+        let row = crate::view::testkit::paint(&mut app, 60, 6, 4);
+
+        // REVERSED turns a span's foreground into its background, so the row
+        // used to be white under the name, dark grey under the size and green
+        // under the glyph: three backgrounds in one highlight.
+        let mut distinct: Vec<_> = row.clone();
+        distinct.dedup();
+        distinct.sort_by_key(|paint| format!("{paint:?}"));
+        distinct.dedup();
+        assert_eq!(
+            distinct.len(),
+            1,
+            "the active row must be one colour across its width, not {distinct:?}"
+        );
+        assert!(row[0].reversed, "and it must be highlighted at all");
+    }
+
+    #[test]
+    fn the_active_row_spans_the_whole_width() {
+        let mut app = machine();
+        app.selected = 1;
+        for width in [40, 60, 92, 140] {
+            let row = crate::view::testkit::paint(&mut app, width, 6, 4);
+            assert_eq!(row.len(), usize::from(width));
+            assert!(
+                row.iter().all(|paint| paint.reversed),
+                "a bar that stops short of the edge reads as a ragged selection at {width}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_group_row_is_one_bar_too() {
+        let mut app = machine();
+        app.selected = 0;
+        let row = crate::view::testkit::paint(&mut app, 60, 6, 3);
+        let mut distinct: Vec<_> = row.clone();
+        distinct.sort_by_key(|paint| format!("{paint:?}"));
+        distinct.dedup();
+        assert_eq!(distinct.len(), 1, "{distinct:?}");
+    }
+
+    #[test]
+    fn nothing_is_highlighted_under_mono_by_colour_alone() {
+        let mut app = machine();
+        app.selected = 1;
+        app.theme = crate::view::theme::Theme::Mono;
+        let row = crate::view::testkit::paint(&mut app, 60, 6, 4);
+        assert!(
+            row.iter().all(|paint| paint.reversed),
+            "mono has no colour to highlight with, so the bar must be the reverse itself"
+        );
     }
 
     #[test]

@@ -170,6 +170,30 @@ the red.
 | `·` | stale | Not executed in months — *parked; see below* |
 | `✕` | broken | Dangling symlink, or the binary is gone |
 
+### Highlighting
+
+Two idioms, used everywhere, and never a third:
+
+| | Means | Drawn as |
+|---|---|---|
+| **cursor** | where the keyboard is | the row reversed, edge to edge |
+| **pointer** | where the mouse is | underlined |
+
+They compose: pointing at the row you are already on shows both.
+
+A highlight reverses rather than painting a background, because a fixed colour
+can always collide with the terminal's own and a reversed bar cannot. Reversing
+turns a foreground into a background, so the row drops its own colours first —
+otherwise a row of differently coloured spans becomes a bar of differently
+coloured blocks. A facet chip keeps its hue, because a facet has exactly one.
+
+Nothing is lost by dropping colour on the active row: every state carries a
+glyph, and the state is written out in words further along the row.
+
+Everything that can be clicked answers the pointer — rows, facet counts, the
+axis and sort column in the rule, and every single-character key in the footer.
+Something clickable that stays silent under the pointer reads as decoration.
+
 ### Grouping
 
 `g` cycles the axis; the axis name in the pane title is clickable. Group headers
