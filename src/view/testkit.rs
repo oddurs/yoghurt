@@ -7,6 +7,7 @@
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use ratatui::style::{Color, Modifier};
 
 use crate::view::app::App;
 
@@ -33,6 +34,51 @@ pub fn render(app: &mut App, width: u16, height: u16) -> Vec<String> {
             (0..width)
                 .map(|x| buffer[(x, y)].symbol())
                 .collect::<String>()
+        })
+        .collect()
+}
+
+/// What one cell was drawn with, reduced to what a reader can see.
+///
+/// Bold is deliberately not here: a heading keeps its weight inside a
+/// highlighted bar, and that is not a difference in the bar itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Paint {
+    /// The foreground it was given.
+    pub fg: Color,
+    /// The background it was given.
+    pub bg: Color,
+    /// Whether the two are swapped, which turns a foreground into a
+    /// background and is how this interface highlights.
+    pub reversed: bool,
+}
+
+/// Draw `app` at this size and read back how each cell of one row is painted.
+///
+/// The text harness above cannot see colour, so the bug where a highlighted
+/// row was a bar of three different backgrounds — white under the name, dark
+/// grey under the size, green under the glyph — rendered a perfect fixture.
+///
+/// # Panics
+///
+/// Panics if the in-memory backend fails, which it cannot.
+#[must_use]
+pub fn paint(app: &mut App, width: u16, height: u16, row: u16) -> Vec<Paint> {
+    let mut terminal =
+        Terminal::new(TestBackend::new(width, height)).expect("a test backend cannot fail");
+    terminal
+        .draw(|frame| super::ui::draw(frame, app))
+        .expect("drawing cannot fail");
+
+    let buffer = terminal.backend().buffer();
+    (0..width)
+        .map(|x| {
+            let cell = &buffer[(x, row)];
+            Paint {
+                fg: cell.fg,
+                bg: cell.bg,
+                reversed: cell.modifier.contains(Modifier::REVERSED),
+            }
         })
         .collect()
 }

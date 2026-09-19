@@ -47,8 +47,12 @@ pub struct App {
     pub detail: Option<usize>,
     /// What was drawn where, for the frame now on screen.
     pub hits: crate::view::hit::Hits,
-    /// Which row the pointer is over, if any.
-    pub hovered: Option<usize>,
+    /// What the pointer is over, if anything.
+    ///
+    /// Any hit region, not only a row: this interface is driven by the mouse,
+    /// and a facet or a footer key that can be clicked but does not answer the
+    /// pointer reads as decoration.
+    pub hovered: Option<crate::view::hit::Hit>,
     /// Which palette is in force.
     pub theme: crate::view::theme::Theme,
 }

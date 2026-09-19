@@ -41,7 +41,7 @@ Run `yoghurt` in a terminal and see everything Homebrew installed — what you
 
 ## v0.2 — All of it
 
-`##########` 100% · 22 of 22 done · due 2026-12-01
+`##########` 100% · 23 of 23 done · due 2026-12-01
 
 Every package manager on the machine, not just Homebrew — and it opens
 
@@ -69,6 +69,7 @@ Every package manager on the machine, not just Homebrew — and it opens
 - [x] `0088` Say 'system' and 'wanted' instead of 'unexplained' <sup>bug · p1 · graph</sup>
 - [x] `0090` Follow symlinked directories into the keg that owns them <sup>bug · p1 · graph</sup>
 - [x] `0093` Show where a package lives, not one file inside it <sup>bug · p2 · list</sup>
+- [x] `0094` Draw the active row as one bar, not a patchwork <sup>bug · p1 · theme</sup>
 
 ## v0.3 — Contention
 
