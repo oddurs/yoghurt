@@ -28,7 +28,7 @@ crossterm = "0.29"
 # supply chain. Needed because `unsafe_code = "forbid"` rules out calling
 # `libc::signal` here, and a terminal left in raw mode is the worst thing this
 # program can do to somebody.
-signal-hook = { version = "0.3", default-features = false }
+signal-hook = { version = "0.4", default-features = false }
 ratatui = "0.30"
 serde = { version = "1", features = ["derive"] }
 # Config: the taxonomy needs one, and so do saved facets (0045) and session
